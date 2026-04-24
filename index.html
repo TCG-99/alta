@@ -8,85 +8,71 @@
         :root { --bg: #1a252f; --card: #2c3e50; --primary: #e74c3c; --accent: #f1c40f; --text: #ecf0f1; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); text-align: center; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: var(--accent); font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; }
-        .container { background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 100%; max-width: 500px; margin-top: 20px; }
+        .container { background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 100%; max-width: 500px; margin-top: 20px; position: relative; }
         .screen { display: none; }
         .active { display: block; }
         button { background-color: var(--primary); color: white; border: none; padding: 15px 20px; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin: 10px 5px; transition: transform 0.1s, background 0.3s; width: 90%; }
         button:hover { background-color: #c0392b; transform: scale(1.02); }
-        button:disabled { background-color: #7f8c8d; cursor: not-allowed; transform: none; }
+        .btn-secondary { background-color: #3498db; }
+        .btn-host-mode { background: transparent; border: 1px solid #7f8c8d; color: #7f8c8d; font-size: 0.8rem; width: auto; padding: 5px 10px; margin-top: 20px; }
         input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #34495e; background: #ecf0f1; color: #2c3e50; margin: 10px; width: 85%; text-align: center; font-weight: bold; outline: none;}
-        input:focus { border-color: var(--primary); }
-        .room-code { font-size: 3.5rem; font-weight: bold; color: var(--accent); letter-spacing: 8px; margin: 10px 0; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px; }
-        ul { list-style: none; padding: 0; font-size: 1.3rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;}
-        li { background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 20px; }
-        #timer-container { display: none; margin-bottom: 20px; }
-        .timer { font-size: 2rem; font-weight: bold; color: var(--accent); border: 4px solid var(--accent); border-radius: 50%; width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; }
-        .prompt-card { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        .prompt-text { font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
-        .vote-btn { background-color: #3498db; }
-        .vote-btn:hover { background-color: #2980b9; }
-        .score-list { text-align: left; font-size: 1.2rem; }
-        .score-list li { display: flex; justify-content: space-between; margin-bottom: 10px; background: rgba(0,0,0,0.3); }
-        .voter-names { font-size: 0.9rem; color: var(--accent); margin-top: 5px; font-style: italic; }
+        .room-tag { position: absolute; top: 10px; right: 15px; font-weight: bold; color: var(--accent); display: none; }
+        .timer { font-size: 2rem; font-weight: bold; color: var(--accent); border: 4px solid var(--accent); border-radius: 50%; width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+        ul { list-style: none; padding: 0; font-size: 1.2rem; }
+        li { background: rgba(255,255,255,0.1); padding: 8px; margin: 5px 0; border-radius: 8px; }
     </style>
 </head>
 <body>
 
     <h1>🧉 Alta Sarasa</h1>
-    <div id="timer-container"><div class="timer" id="global-timer">--</div></div>
+    <div id="timer-container" style="display:none;"><div class="timer" id="global-timer">--</div></div>
 
     <div class="container">
+        <div id="room-display-tag" class="room-tag">SALA: ----</div>
+
         <div id="screen-home" class="screen active">
-            <input type="text" id="player-name" placeholder="Tu Nombre (Obligatorio)" maxlength="15">
-            <hr style="border-color: #34495e; margin: 20px 0;">
-            <button onclick="createGame()">Crear Sala (Host)</button>
-            <p style="margin: 15px 0;">O únete a tus amigos:</p>
-            <input type="text" id="join-code" placeholder="CÓDIGO" maxlength="4" style="text-transform: uppercase; font-size: 1.5rem;">
-            <button onclick="joinGame()" style="background-color: #3498db;">Unirse</button>
+            <input type="text" id="player-name" placeholder="Tu Nombre" maxlength="15">
+            <input type="text" id="join-code" placeholder="CÓDIGO DE SALA" maxlength="4" style="text-transform: uppercase;">
+            <button class="btn-secondary" onclick="joinGame()">Unirse a Partida</button>
+            
+            <button class="btn-host-mode" onclick="toggleHostView()">Activar Modo Anfitrión</button>
+            <div id="host-setup" style="display:none; margin-top: 10px;">
+                <button onclick="createGame()">Crear Nueva Sala</button>
+            </div>
         </div>
 
         <div id="screen-lobby" class="screen">
-            <h2 id="lobby-title">Sala</h2>
-            <div class="room-code" id="display-room-code">----</div>
-            <p>Jugadores adentro:</p>
+            <h2>Sala de Espera</h2>
+            <div id="lobby-code-big" style="font-size: 2rem; color: var(--accent); margin-bottom: 15px;">----</div>
+            <p>Jugadores:</p>
             <ul id="player-list"></ul>
             <div id="host-controls" style="display: none;">
-                <button onclick="startGame()">¡Arrancar Juego!</button>
-            </div>
-            <div id="client-wait" style="display: none;">
-                <p>Esperando que el Host arranque...</p>
+                <button onclick="startGame()">¡Arrancar!</button>
             </div>
         </div>
 
         <div id="screen-answering" class="screen">
             <h2 id="answering-title">Completá la frase:</h2>
             <div id="prompts-container"></div>
-            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar Sarasa</button>
+            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar</button>
         </div>
 
         <div id="screen-voting" class="screen">
-            <h2 id="voting-title">¡A votar!</h2>
-            <div class="prompt-card">
-                <div class="prompt-text" id="vote-prompt-text">Cargando...</div>
-            </div>
+            <h2 id="voting-title">Votación</h2>
+            <div id="vote-prompt-text" style="font-weight: bold; margin-bottom: 15px;"></div>
             <div id="voting-buttons"></div>
-            <p id="vote-wait-msg" style="display:none; color: var(--accent);">Esperando a los demás...</p>
         </div>
 
         <div id="screen-vote-result" class="screen">
-            <h2 id="result-title">Resultados</h2>
-            <div class="prompt-card">
-                <div class="prompt-text" id="result-prompt-text"></div>
-            </div>
+            <h2>Resultados</h2>
+            <div id="result-prompt-text" style="font-style: italic;"></div>
             <div id="result-details"></div>
         </div>
 
         <div id="screen-scores" class="screen">
-            <h2>Posiciones Finales</h2>
-            <ul id="final-scores" class="score-list"></ul>
-            <div id="host-restart" style="display:none;">
-                <button onclick="location.reload()">Volver al Inicio</button>
-            </div>
+            <h2>Posiciones</h2>
+            <ul id="final-scores"></ul>
+            <button onclick="location.reload()">Salir</button>
         </div>
     </div>
 
