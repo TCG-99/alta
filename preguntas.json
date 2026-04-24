@@ -1,26 +1,246 @@
 [
-  {
-    "id": 1,
-    "prompt": "El peor sabor posible para el relleno de una empanada: _____"
-  },
-  {
-    "id": 2,
-    "prompt": "La verdadera razón por la que el obelisco es tan alto es..."
-  },
-  {
-    "id": 3,
-    "prompt": "Una excusa inchequeable pero efectiva para no ir a un asado el domingo."
-  },
-  {
-    "id": 4,
-    "prompt": "Si el mate tuviera un manual de instrucciones, la regla #1 sería..."
-  },
-  {
-    "id": 5,
-    "prompt": "El peor nombre para un perro de la calle."
-  },
-  {
-    "id": 6,
-    "prompt": "En lugar de anillos, los novios en el conurbano se intercambian _____"
-  }
+{
+"id": 1,
+"prompt": "El peor sabor posible para el relleno de una empanada."
+},
+
+{
+"id": 2,
+"prompt": "Una excusa inchequeable pero efectiva para no ir a un asado el domingo."
+},
+
+{
+"id": 3,
+"prompt": "Si el mate tuviera un manual de instrucciones, la regla #1 sería..."
+},
+
+{
+"id": 4,
+"prompt": "Si tuviéramos que cambiarle el nombre al país por algo más honesto, sería..."
+},
+
+{
+"id": 5,
+"prompt": "El truco definitivo para no dormirse cuando tenés que pasar toda la noche despierto."
+},
+
+{
+"id": 6,
+"prompt": "Una nueva regla del Estanciero: si caés en la Aduana, tenés que _____"
+},
+
+{
+"id": 7,
+"prompt": "El nombre de un programa de chimentos conducido por animales."
+},
+
+{
+"id": 8,
+"prompt": "¿Cuál es el peor ruido que podés escuchar al sacudir un regalo de Navidad?"
+},
+
+{
+"id": 9,
+"prompt": "Un momento en el que NO deberías estar usando ropa blanca."
+},
+
+{
+"id": 10,
+"prompt": "La señal definitiva de que tu perro es medio boludo."
+},
+
+{
+"id": 11,
+"prompt": "Algo muy raro que un árbitro de fútbol podría susurrarle a un jugador antes de un tiro libre."
+},
+
+{
+"id": 12,
+"prompt": "Hagas lo que hagas, NUNCA le pongas chimichurri a..."
+},
+
+{
+"id": 13,
+"prompt": "La próxima película de Pixar tratará sobre un/a ________ parlante."
+},
+
+{
+"id": 14,
+"prompt": "Lo más vergonzoso que te podría pasar en tu fiesta de egresados."
+},
+
+{
+"id": 15,
+"prompt": "Un nombre apropiado para un bar que no tiene baño."
+},
+
+{
+"id": 16,
+"prompt": "El peor uso de la ciencia sería clonar a _____"
+},
+
+{
+"id": 17,
+"prompt": "La única ventaja real de tener la espalda llena de pelos."
+},
+
+{
+"id": 18,
+"prompt": "¿Qué estarán pensando los maniquíes de la vidriera?"
+},
+
+{
+"id": 19,
+"prompt": "Lo que realmente motiva a los políticos a seguir haciendo campaña."
+},
+
+{
+"id": 20,
+"prompt": "¿Qué palabra nunca debería ir acompañada de un signo de exclamación?"
+},
+
+{
+"id": 21,
+"prompt": "El nombre de la película de acción más aburrida de la historia."
+},
+
+{
+"id": 22,
+"prompt": "El nombre que le pone un gaucho muy vago a su caballo."
+},
+
+{
+"id": 23,
+"prompt": "Las elecciones serían mejores si en vez de debatir, los candidatos tuvieran que _____"
+},
+
+{
+"id": 24,
+"prompt": "El objeto más inútil para llevar a una isla desierta."
+},
+
+{
+"id": 25,
+"prompt": "Si pudieras heredar una habilidad inútil de tus viejos, sería _____"
+},
+
+{
+"id": 26,
+"prompt": "El nombre de una banda de rock formada por jubilados."
+},
+
+{
+"id": 27,
+"prompt": "Lo peor que podés gritar desde el probador."
+},
+
+{
+"id": 28,
+"prompt": "Algo que no querrías escuchar de tu cirujano justo antes de que te anestesien."
+},
+
+{
+"id": 29,
+"prompt": "Un ingrediente secreto que arruinaría cualquier pizza."
+},
+
+{
+"id": 30,
+"prompt": "El nombre de un gimnasio para gente que odia hacer gimnasia."
+},
+
+{
+"id": 31,
+"prompt": "Sinceramente, nunca se puede tener demasiado/a..."
+},
+
+{
+"id": 32,
+"prompt": "Te das cuenta de que un restaurante es malo cuando el mozo te dice..."
+},
+
+{
+"id": 33,
+"prompt": "Los arqueólogos no quieren admitir que descubrieron pinturas rupestres de..."
+},
+
+{
+"id": 34,
+"prompt": "Si tus juguetes de la infancia cobraran vida, probablemente dirían..."
+},
+
+{
+"id": 35,
+"prompt": "Sabés que es una buena fiesta cuando alguien aparece con..."
+},
+
+{
+"id": 36,
+"prompt": "Un nuevo y sorprendente uso para el kale."
+},
+
+{
+"id": 37,
+"prompt": "No lo vas a creer, pero los chicos ahora coleccionan figuritas de..."
+},
+
+{
+"id": 38,
+"prompt": "¿Qué le gana a la piedra, al papel Y a la tijera?"
+},
+
+{
+"id": 39,
+"prompt": "Con la luna llena, algunas personas se transforman en..."
+},
+
+{
+"id": 40,
+"prompt": "Un eslogan rechazado para una marca de leche."
+},
+
+{
+"id": 41,
+"prompt": "Una señal clara de que estás atrapado en una pesadilla horrible."
+},
+
+{
+"id": 42,
+"prompt": "Un comentario que JAMÁS se hizo en la historia de internet."
+},
+
+{
+"id": 43,
+"prompt": "El juguete menos popular de este año: 'El muñeco de...'"
+},
+
+{
+"id": 44,
+"prompt": "Reseña de hotel de 1 estrella: 'Cama dura, sin toallas y...'"
+},
+
+{
+"id": 45,
+"prompt": "En el casino te echan si te acercás a la mesa de ruleta y gritás..."
+},
+
+{
+"id": 46,
+"prompt": "'Un buen hombre es difícil de...'"
+},
+
+{
+"id": 47,
+"prompt": "Un nombre terrible para un modelo de auto que se maneja solo."
+},
+
+{
+"id": 48,
+"prompt": "Sabés que la cosa viene mal cuando tu mamá te dice: 'No estoy enojada, estoy...'"
+},
+
+{
+"id": 49,
+"prompt": "Lo peor que podés gritar desde el probador de una casa de ropa."
+}
 ]
