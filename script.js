@@ -1,26 +1,26 @@
 let peer = null;
-let conn = null; // Cliente conectado al Host
-let hostConnections = []; // Host conectado a clientes
+let conn = null; 
+let hostConnections = []; 
 let isHost = false;
 
-// Datos del jugador local
 let myId = "";
 let myName = "";
-let myAssignments = []; // Preguntas a responder
-let myAnswers = {}; // Mis respuestas redactadas
+let myAssignments = []; 
+let myAnswers = {}; 
 
-// Estado del Servidor (Solo manejado por el Host)
 let serverState = {
-    players: [], // {id, name, score}
-    prompts: [], // Preguntas seleccionadas para la ronda
-    assignments: {}, // idJugador -> [idPregunta1, idPregunta2]
-    answers: {}, // idPregunta -> [{authorId, text}]
-    votes: {}, // idPregunta -> [votedForAuthorId]
+    players: [], 
+    unusedPrompts: [], 
+    prompts: [], 
+    assignments: {}, 
+    answers: {}, 
+    votes: {}, 
     currentVoteIndex: 0,
+    currentRound: 1,
+    maxRounds: 3, 
     timerTimeout: null
 };
 
-// Preguntas de respaldo si no hay JSON
 const fallbackQuestions = [
     { id: 1, prompt: "El peor sabor de helado sería crema del cielo y..." },
     { id: 2, prompt: "Si mi perro hablara, lo primero que diría es:" },
@@ -31,7 +31,6 @@ const fallbackQuestions = [
 ];
 let gameQuestions = [...fallbackQuestions];
 
-// --- UTILIDADES ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -45,14 +44,12 @@ function generateRoomCode() {
 function getNickname() {
     let name = document.getElementById('player-name').value.trim();
     if (!name) {
-        const adjs = ['Pibe', 'Gato', 'Capo', 'Fiera', 'Loco', 'Crack'];
-        const nouns = ['Místico', 'Cósmico', 'Rancio', 'Picante', 'Basado'];
-        name = `${adjs[Math.floor(Math.random()*adjs.length)]} ${nouns[Math.floor(Math.random()*nouns.length)]}`;
+        alert("¡Tenés que poner un nombre sí o sí, fiera!");
+        return null;
     }
     return name;
 }
 
-// Temporizador Visual (Se ejecuta en Host y Clientes)
 let visualTimer;
 function startLocalTimer(seconds) {
     let t = seconds;
@@ -74,7 +71,6 @@ function stopLocalTimer() {
     document.getElementById('timer-container').style.display = 'none';
 }
 
-// --- LÓGICA DEL JUEGO (UI LOCAL - TODOS) ---
 function handleGameState(data) {
     switch(data.type) {
         case 'LOBBY_UPDATE':
@@ -91,6 +87,11 @@ function handleGameState(data) {
             
         case 'PHASE_ANSWERING':
             myAssignments = data.assignments;
+            myAnswers = {}; 
+            
+            let roundText = data.round === 3 ? "RONDA FINAL" : `RONDA ${data.round}`;
+            document.getElementById('answering-title').innerText = `${roundText}: Completá la frase`;
+            
             const container = document.getElementById('prompts-container');
             container.innerHTML = '';
             myAssignments.forEach((q, index) => {
@@ -109,19 +110,29 @@ function handleGameState(data) {
 
         case 'PHASE_VOTING':
             document.getElementById('vote-wait-msg').style.display = 'none';
+            let voteRoundText = data.round === 3 ? "Votación Final" : "¡A votar!";
+            document.getElementById('voting-title').innerText = voteRoundText;
             document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
+            
             const btnContainer = document.getElementById('voting-buttons');
             btnContainer.innerHTML = '';
             
-            // Si el jugador escribió una de las respuestas, no puede votar
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
             
-            if (isMyPrompt) {
-                btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">¡Estás en este duelo! Calladito la boca y esperá.</p>`;
-            } else {
+            if (data.round === 3) {
                 data.answers.forEach((ans, idx) => {
-                    btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
+                    if (ans.authorId !== myId) {
+                        btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
+                    }
                 });
+            } else {
+                if (isMyPrompt) {
+                    btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">¡Estás en este duelo! Calladito la boca y esperá.</p>`;
+                } else {
+                    data.answers.forEach((ans, idx) => {
+                        btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
+                    });
+                }
             }
             startLocalTimer(data.time);
             showScreen('screen-voting');
@@ -134,13 +145,15 @@ function handleGameState(data) {
             resContainer.innerHTML = '';
             
             if (data.isJinx) {
-                resContainer.innerHTML = `<h3 style="color:#e74c3c;">¡CICUTA! Escribieron lo mismo. 0 Puntos para los giles.</h3>`;
+                resContainer.innerHTML = `<h3 style="color:#e74c3c;">¡CICUTA! Escribieron lo mismo. 0 Puntos.</h3>`;
             } else {
-                data.results.forEach(res => {
+                data.results.sort((a,b) => b.votes - a.votes).forEach(res => {
+                    let votersText = res.voterNames.length > 0 ? `Votado por: ${res.voterNames.join(', ')}` : 'Nadie lo votó 💀';
                     resContainer.innerHTML += `
                         <div style="background: rgba(0,0,0,0.2); padding: 10px; margin: 5px; border-radius: 5px;">
                             <strong>${res.authorName}</strong> escribió: "${res.text}" <br>
                             Votos: ${res.votes} (+${res.pointsAdded} pts) ${res.quiplash ? '🔥 ¡ALTA SARASA!' : ''}
+                            <div class="voter-names">${votersText}</div>
                         </div>
                     `;
                 });
@@ -161,12 +174,13 @@ function handleGameState(data) {
     }
 }
 
-// --- LÓGICA DEL CLIENTE (E INTERFAZ) ---
 function joinGame() {
+    myName = getNickname();
+    if (!myName) return;
+
     const code = document.getElementById('join-code').value.toUpperCase();
     if (!code) return alert("Poné un código.");
     
-    myName = getNickname();
     peer = new Peer();
     
     peer.on('open', (id) => {
@@ -187,12 +201,10 @@ function submitAnswers() {
     myAssignments.forEach(q => {
         const val = document.getElementById(`answer-${q.id}`).value.trim();
         if (!val) allAnswered = false;
-        myAnswers[q.id] = val || "Me quedé dormido..."; // Fallback si la dejan vacía
+        myAnswers[q.id] = val || "Me quedé en blanco..."; 
     });
 
-    if (!allAnswered && confirm("¿Dejaste alguna vacía, seguro querés mandar igual?")) {
-        // Enviar igual
-    } else if (!allAnswered) {
+    if (!allAnswered && !confirm("¿Dejaste alguna vacía, seguro querés mandar igual?")) {
         return;
     }
 
@@ -208,30 +220,31 @@ function sendVote(votedForAuthorId) {
     document.getElementById('voting-buttons').innerHTML = '';
     document.getElementById('vote-wait-msg').style.display = 'block';
     
-    const payload = { type: 'CMD_VOTE', authorId: votedForAuthorId };
+    const payload = { type: 'CMD_VOTE', authorId: votedForAuthorId, voterId: myId };
     if (isHost) handleCommandFromClient(payload);
     else conn.send(payload);
 }
 
-// --- LÓGICA DEL HOST (SERVIDOR) ---
 async function createGame() {
-    isHost = true;
     myName = getNickname();
+    if (!myName) return;
+
+    isHost = true;
     const code = generateRoomCode();
     myId = 'HOST';
     const peerId = 'sarasa-' + code;
 
-    // Cargar Preguntas
     try {
         const res = await fetch('preguntas.json');
         if(res.ok) gameQuestions = await res.json();
     } catch (e) { console.warn("Usando preguntas de respaldo."); }
 
+    serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+
     peer = new Peer(peerId);
 
     peer.on('open', (id) => {
         serverState.roomCode = code;
-        // El Host se agrega a sí mismo como jugador
         serverState.players.push({ id: myId, name: myName, score: 0 });
         
         document.getElementById('host-controls').style.display = 'block';
@@ -245,9 +258,7 @@ async function createGame() {
 }
 
 function broadcast(data) {
-    // 1. Actualiza la UI del Host local
     handleGameState(data);
-    // 2. Envía a todos los clientes
     hostConnections.forEach(c => c.send(data));
 }
 
@@ -263,9 +274,10 @@ function handleCommandFromClient(data) {
             serverState.answers[qId].push({ authorId: pId, text: text });
         }
         
-        // Chequear si todos respondieron (cada jugador envía 2)
-        let totalExpected = serverState.players.length * 2;
+        let expectedAnswersPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
+        let totalExpected = serverState.players.length * expectedAnswersPerPlayer;
         let totalReceived = Object.values(serverState.answers).flat().length;
+        
         if (totalReceived >= totalExpected && serverState.phase === 'ANSWERING') {
             clearTimeout(serverState.timerTimeout);
             startVotingPhase();
@@ -274,10 +286,9 @@ function handleCommandFromClient(data) {
     else if (data.type === 'CMD_VOTE') {
         const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
         if (!serverState.votes[currentPrompt.id]) serverState.votes[currentPrompt.id] = [];
-        serverState.votes[currentPrompt.id].push(data.authorId);
+        serverState.votes[currentPrompt.id].push({voterId: data.voterId, votedFor: data.authorId});
         
-        // Esperamos votos de todos menos de los 2 que escribieron
-        let expectedVotes = serverState.players.length - 2;
+        let expectedVotes = serverState.currentRound <= 2 ? serverState.players.length - 2 : serverState.players.length;
         if (serverState.votes[currentPrompt.id].length >= expectedVotes) {
             clearTimeout(serverState.timerTimeout);
             processVotingResults();
@@ -289,54 +300,86 @@ function startGame() {
     if (serverState.players.length < 3) {
         alert("Se necesitan al menos 3 jugadores."); return;
     }
-    
+    serverState.currentRound = 1;
+    serverState.players.forEach(p => p.score = 0);
+    startRound();
+}
+
+function startRound() {
     serverState.phase = 'ANSWERING';
+    serverState.answers = {};
+    serverState.votes = {};
+    serverState.currentVoteIndex = 0;
+    
     const N = serverState.players.length;
     
-    // Mezclar preguntas y elegir N
-    let shuffledQ = [...gameQuestions].sort(() => 0.5 - Math.random());
-    serverState.prompts = shuffledQ.slice(0, N);
-    
-    // Asignar 2 preguntas a cada jugador (Cada pregunta la ven exactamente 2 jugadores)
-    for (let i = 0; i < N; i++) {
-        let pId = serverState.players[i].id;
-        serverState.assignments[pId] = [
-            serverState.prompts[i],
-            serverState.prompts[(i + 1) % N]
-        ];
+    if (serverState.currentRound <= 2) {
+        if (serverState.unusedPrompts.length < N) {
+            serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+        }
+        serverState.prompts = serverState.unusedPrompts.splice(0, N);
+        
+        for (let i = 0; i < N; i++) {
+            let pId = serverState.players[i].id;
+            serverState.assignments[pId] = [
+                serverState.prompts[i],
+                serverState.prompts[(i + 1) % N]
+            ];
+        }
+    } else {
+        if (serverState.unusedPrompts.length < 1) {
+            serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+        }
+        let finalPrompt = serverState.unusedPrompts.splice(0, 1)[0];
+        serverState.prompts = [finalPrompt];
+        
+        for (let i = 0; i < N; i++) {
+            let pId = serverState.players[i].id;
+            serverState.assignments[pId] = [finalPrompt];
+        }
     }
 
-    // Enviar estado personalizado a cada cliente (para que no vean las preguntas del resto)
     hostConnections.forEach(c => {
-        c.send({ type: 'PHASE_ANSWERING', assignments: serverState.assignments[c.peer], time: 60 });
+        c.send({ type: 'PHASE_ANSWERING', round: serverState.currentRound, assignments: serverState.assignments[c.peer], time: 60 });
     });
-    // Actualizar host local
-    handleGameState({ type: 'PHASE_ANSWERING', assignments: serverState.assignments[myId], time: 60 });
+    handleGameState({ type: 'PHASE_ANSWERING', round: serverState.currentRound, assignments: serverState.assignments[myId], time: 60 });
 
     serverState.timerTimeout = setTimeout(() => {
-        if(serverState.phase === 'ANSWERING') startVotingPhase();
+        if(serverState.phase === 'ANSWERING') forceSubmitMissing();
     }, 60000);
+}
+
+function forceSubmitMissing() {
+    for (const [pId, assignedPrompts] of Object.entries(serverState.assignments)) {
+        assignedPrompts.forEach(q => {
+            if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
+            const hasAnswered = serverState.answers[q.id].some(a => a.authorId === pId);
+            if (!hasAnswered) {
+                serverState.answers[q.id].push({ authorId: pId, text: "Me colgué mal..." });
+            }
+        });
+    }
+    startVotingPhase();
 }
 
 function startVotingPhase() {
     serverState.phase = 'VOTING';
     if (serverState.currentVoteIndex >= serverState.prompts.length) {
-        broadcast({ type: 'PHASE_SCORES', players: serverState.players });
+        serverState.currentRound++;
+        if (serverState.currentRound > serverState.maxRounds) {
+            broadcast({ type: 'PHASE_SCORES', players: serverState.players });
+        } else {
+            startRound();
+        }
         return;
     }
 
     const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
     let promptAnswers = serverState.answers[currentPrompt.id] || [];
     
-    // Si alguien no respondió por timeout, generar relleno
-    while(promptAnswers.length < 2) {
-        promptAnswers.push({authorId: 'BOT', text: 'Zzz...'});
-    }
-
-    // Mezclar respuestas para que no sepan quién es A y B
     promptAnswers = promptAnswers.sort(() => 0.5 - Math.random());
 
-    broadcast({ type: 'PHASE_VOTING', prompt: currentPrompt, answers: promptAnswers, time: 20 });
+    broadcast({ type: 'PHASE_VOTING', round: serverState.currentRound, prompt: currentPrompt, answers: promptAnswers, time: 20 });
 
     serverState.timerTimeout = setTimeout(() => {
         processVotingResults();
@@ -351,38 +394,50 @@ function processVotingResults() {
     let isJinx = false;
     let resultsData = [];
 
-    // Validar Jinx (Textos idénticos ignorando mayúsculas)
-    if (promptAnswers.length === 2 && promptAnswers[0].text.toLowerCase() === promptAnswers[1].text.toLowerCase()) {
+    if (serverState.currentRound <= 2 && promptAnswers.length === 2 && promptAnswers[0].text.toLowerCase() === promptAnswers[1].text.toLowerCase()) {
         isJinx = true;
     }
 
     const totalVotes = votes.length;
+    let roundMultiplier = serverState.currentRound === 2 ? 2 : (serverState.currentRound === 3 ? 3 : 1);
 
     promptAnswers.forEach(ans => {
         let author = serverState.players.find(p => p.id === ans.authorId);
         let authorName = author ? author.name : 'Desconocido';
-        let voteCount = votes.filter(v => v === ans.authorId).length;
+        
+        let voterDetails = votes.filter(v => v.votedFor === ans.authorId).map(v => {
+            let voterInfo = serverState.players.find(p => p.id === v.voterId);
+            return voterInfo ? voterInfo.name : 'Alguien';
+        });
+
+        let voteCount = voterDetails.length;
         let pointsAdded = 0;
         let quiplash = false;
 
         if (!isJinx && totalVotes > 0) {
-            pointsAdded = Math.floor((voteCount / totalVotes) * 1000); // Proporcional
-            if (voteCount === totalVotes && totalVotes > 0) {
-                pointsAdded += 500; // Bonus Alta Sarasa
+            pointsAdded = Math.floor((voteCount / totalVotes) * 1000) * roundMultiplier;
+            if (serverState.currentRound <= 2 && voteCount === totalVotes && totalVotes > 0) {
+                pointsAdded += (500 * roundMultiplier); 
                 quiplash = true;
             }
         }
 
         if (author && !isJinx) author.score += pointsAdded;
 
-        resultsData.push({ authorName, text: ans.text, votes: voteCount, pointsAdded, quiplash });
+        resultsData.push({ 
+            authorName, 
+            text: ans.text, 
+            votes: voteCount, 
+            voterNames: voterDetails, 
+            pointsAdded, 
+            quiplash 
+        });
     });
 
     broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, results: resultsData });
 
-    // Esperar unos segundos viendo los resultados y pasar a la siguiente
     setTimeout(() => {
         serverState.currentVoteIndex++;
         startVotingPhase();
-    }, 6000);
+    }, 8000);
 }
