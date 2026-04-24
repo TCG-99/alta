@@ -18,7 +18,8 @@ let serverState = {
     currentVoteIndex: 0,
     currentRound: 1,
     maxRounds: 3, 
-    timerTimeout: null
+    timerTimeout: null,
+    phase: 'LOBBY'
 };
 
 const fallbackQuestions = [
@@ -30,6 +31,8 @@ const fallbackQuestions = [
     { id: 6, prompt: "Una excusa malísima para llegar tarde al trabajo:" }
 ];
 let gameQuestions = [...fallbackQuestions];
+
+// --- UTILIDADES ---
 
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -50,6 +53,11 @@ function getNickname() {
     return name;
 }
 
+function toggleHostView() {
+    const setup = document.getElementById('host-setup');
+    setup.style.display = setup.style.display === 'none' ? 'block' : 'none';
+}
+
 let visualTimer;
 function startLocalTimer(seconds) {
     let t = seconds;
@@ -68,8 +76,12 @@ function startLocalTimer(seconds) {
 
 function stopLocalTimer() {
     clearInterval(visualTimer);
-    document.getElementById('timer-container').style.display = 'none';
+    if(document.getElementById('timer-container')) {
+        document.getElementById('timer-container').style.display = 'none';
+    }
 }
+
+// --- LÓGICA DE CLIENTE ---
 
 function handleGameState(data) {
     switch(data.type) {
@@ -94,7 +106,7 @@ function handleGameState(data) {
             
             const container = document.getElementById('prompts-container');
             container.innerHTML = '';
-            myAssignments.forEach((q, index) => {
+            myAssignments.forEach((q) => {
                 container.innerHTML += `
                     <div class="prompt-card">
                         <div class="prompt-text">${q.prompt}</div>
@@ -119,21 +131,22 @@ function handleGameState(data) {
             
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
             
-            if (data.round === 3) {
-                data.answers.forEach((ans, idx) => {
+            data.answers.forEach((ans) => {
+                // En ronda 3 votan todos a todos (menos a uno mismo)
+                // En rondas 1-2, si es tu prompt, no votás.
+                if (data.round === 3) {
                     if (ans.authorId !== myId) {
                         btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
                     }
-                });
-            } else {
-                if (isMyPrompt) {
-                    btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
                 } else {
-                    data.answers.forEach((ans, idx) => {
+                    if (isMyPrompt) {
+                        btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
+                    } else {
                         btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
-                    });
+                    }
                 }
-            }
+            });
+            
             startLocalTimer(data.time);
             showScreen('screen-voting');
             break;
@@ -199,7 +212,8 @@ function joinGame() {
 function submitAnswers() {
     let allAnswered = true;
     myAssignments.forEach(q => {
-        const val = document.getElementById(`answer-${q.id}`).value.trim();
+        const input = document.getElementById(`answer-${q.id}`);
+        const val = input ? input.value.trim() : "";
         if (!val) allAnswered = false;
         myAnswers[q.id] = val || "Me quedé en blanco..."; 
     });
@@ -225,6 +239,8 @@ function sendVote(votedForAuthorId) {
     else conn.send(payload);
 }
 
+// --- LÓGICA DEL HOST (SERVIDOR) ---
+
 async function createGame() {
     myName = getNickname();
     if (!myName) return;
@@ -247,8 +263,18 @@ async function createGame() {
         serverState.roomCode = code;
         serverState.players.push({ id: myId, name: myName, score: 0 });
         
+        // UI Updates del Host
         document.getElementById('host-controls').style.display = 'block';
-        broadcast({ type: 'LOBBY_UPDATE', players: serverState.players, code: serverState.roomCode });
+        document.getElementById('room-display-tag').innerText = `SALA: ${code}`;
+        document.getElementById('room-display-tag').style.display = 'block';
+        document.getElementById('lobby-code-big').innerText = code;
+
+        broadcast({ 
+            type: 'LOBBY_UPDATE', 
+            players: serverState.players, 
+            code: serverState.roomCode,
+            phase: serverState.phase 
+        });
     });
 
     peer.on('connection', (connection) => {
@@ -264,8 +290,20 @@ function broadcast(data) {
 
 function handleCommandFromClient(data) {
     if (data.type === 'CMD_JOIN') {
-        serverState.players.push({ id: data.id, name: data.name, score: 0 });
-        broadcast({ type: 'LOBBY_UPDATE', players: serverState.players, code: serverState.roomCode });
+        // ANTI-FANTASMAS
+        const existingIdx = serverState.players.findIndex(p => p.id === data.id);
+        if (existingIdx !== -1) {
+            serverState.players[existingIdx].name = data.name;
+        } else {
+            serverState.players.push({ id: data.id, name: data.name, score: 0 });
+        }
+        
+        broadcast({ 
+            type: 'LOBBY_UPDATE', 
+            players: serverState.players, 
+            code: serverState.roomCode,
+            phase: serverState.phase 
+        });
     } 
     else if (data.type === 'CMD_SUBMIT_ANSWERS') {
         const pId = data.id;
@@ -311,7 +349,8 @@ function startRound() {
     serverState.votes = {};
     serverState.currentVoteIndex = 0;
     
-    const N = serverState.players.length;
+    const players = serverState.players;
+    const N = players.length;
     
     if (serverState.currentRound <= 2) {
         if (serverState.unusedPrompts.length < N) {
@@ -320,29 +359,40 @@ function startRound() {
         serverState.prompts = serverState.unusedPrompts.splice(0, N);
         
         for (let i = 0; i < N; i++) {
-            let pId = serverState.players[i].id;
+            let pId = players[i].id;
             serverState.assignments[pId] = [
                 serverState.prompts[i],
                 serverState.prompts[(i + 1) % N]
             ];
         }
     } else {
+        // Ronda Final igual para todos
         if (serverState.unusedPrompts.length < 1) {
             serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
         }
         let finalPrompt = serverState.unusedPrompts.splice(0, 1)[0];
         serverState.prompts = [finalPrompt];
-        
-        for (let i = 0; i < N; i++) {
-            let pId = serverState.players[i].id;
-            serverState.assignments[pId] = [finalPrompt];
-        }
+        players.forEach(p => serverState.assignments[p.id] = [finalPrompt]);
     }
 
+    broadcastAnsweringPhase();
+}
+
+function broadcastAnsweringPhase() {
     hostConnections.forEach(c => {
-        c.send({ type: 'PHASE_ANSWERING', round: serverState.currentRound, assignments: serverState.assignments[c.peer], time: 60 });
+        c.send({ 
+            type: 'PHASE_ANSWERING', 
+            round: serverState.currentRound, 
+            assignments: serverState.assignments[c.peer], 
+            time: 60 
+        });
     });
-    handleGameState({ type: 'PHASE_ANSWERING', round: serverState.currentRound, assignments: serverState.assignments[myId], time: 60 });
+    handleGameState({ 
+        type: 'PHASE_ANSWERING', 
+        round: serverState.currentRound, 
+        assignments: serverState.assignments[myId], 
+        time: 60 
+    });
 
     serverState.timerTimeout = setTimeout(() => {
         if(serverState.phase === 'ANSWERING') forceSubmitMissing();
@@ -376,14 +426,42 @@ function startVotingPhase() {
 
     const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
     let promptAnswers = serverState.answers[currentPrompt.id] || [];
+
+    // REUTILIZAR RESPUESTA (Caso de jugador sin pareja o respuesta vacía)
+    if (serverState.currentRound <= 2 && promptAnswers.length < 2) {
+        let safetyAnswer = findReplacementAnswer(currentPrompt.id);
+        promptAnswers.push({ 
+            authorId: 'DUMMY', 
+            authorName: safetyAnswer.authorName || "El Sistema", 
+            text: safetyAnswer.text + " (Reciclada)" 
+        });
+    }
     
     promptAnswers = promptAnswers.sort(() => 0.5 - Math.random());
 
-    broadcast({ type: 'PHASE_VOTING', round: serverState.currentRound, prompt: currentPrompt, answers: promptAnswers, time: 20 });
+    broadcast({ 
+        type: 'PHASE_VOTING', 
+        round: serverState.currentRound, 
+        prompt: currentPrompt, 
+        answers: promptAnswers, 
+        time: 20 
+    });
 
     serverState.timerTimeout = setTimeout(() => {
         processVotingResults();
     }, 20000);
+}
+
+function findReplacementAnswer(excludeQId) {
+    let allHistory = [];
+    Object.keys(serverState.answers).forEach(qId => {
+        if(qId != excludeQId) allHistory.push(...serverState.answers[qId]);
+    });
+
+    if (allHistory.length > 0) {
+        return allHistory[Math.floor(Math.random() * allHistory.length)];
+    }
+    return { authorName: "El Sistema", text: "¡Sarasa Cósmica!" };
 }
 
 function processVotingResults() {
@@ -403,7 +481,7 @@ function processVotingResults() {
 
     promptAnswers.forEach(ans => {
         let author = serverState.players.find(p => p.id === ans.authorId);
-        let authorName = author ? author.name : 'Desconocido';
+        let authorName = ans.authorId === 'DUMMY' ? ans.authorName : (author ? author.name : 'Desconocido');
         
         let voterDetails = votes.filter(v => v.votedFor === ans.authorId).map(v => {
             let voterInfo = serverState.players.find(p => p.id === v.voterId);
@@ -422,7 +500,7 @@ function processVotingResults() {
             }
         }
 
-        if (author && !isJinx) author.score += pointsAdded;
+        if (author && !isJinx && ans.authorId !== 'DUMMY') author.score += pointsAdded;
 
         resultsData.push({ 
             authorName, 
