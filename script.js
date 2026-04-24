@@ -127,7 +127,7 @@ function handleGameState(data) {
                 });
             } else {
                 if (isMyPrompt) {
-                    btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">¡Estás en este duelo! Calladito la boca y esperá.</p>`;
+                    btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
                 } else {
                     data.answers.forEach((ans, idx) => {
                         btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
