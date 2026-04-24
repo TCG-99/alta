@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alta Sarasa - P2P Party Game</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; color: #ecf0f1; text-align: center; padding: 20px; }
+        .screen { display: none; margin-top: 50px; }
+        .active { display: block; }
+        button { background-color: #e74c3c; color: white; border: none; padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 5px; margin: 10px; }
+        button:hover { background-color: #c0392b; }
+        input { padding: 15px; font-size: 1.2rem; border-radius: 5px; border: none; margin: 10px; text-align: center;}
+        .room-code { font-size: 3rem; font-weight: bold; color: #f1c40f; letter-spacing: 5px;}
+        #player-list { list-style: none; padding: 0; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+
+    <h1>🧉 Alta Sarasa</h1>
+
+    <div id="screen-home" class="screen active">
+        <button onclick="createGame()">Crear Sala (Host)</button>
+        <br><br>
+        <input type="text" id="join-code" placeholder="Código de Sala" maxlength="4" style="text-transform: uppercase;">
+        <br>
+        <input type="text" id="player-name" placeholder="Tu Nombre">
+        <br>
+        <button onclick="joinGame()">Unirse a Sala</button>
+    </div>
+
+    <div id="screen-lobby-host" class="screen">
+        <h2>Código de la sala:</h2>
+        <div class="room-code" id="display-room-code">----</div>
+        <p>Esperando a los pibes...</p>
+        <ul id="player-list"></ul>
+        <button onclick="startGame()">¡Arrancar Juego!</button>
+    </div>
+
+    <div id="screen-lobby-client" class="screen">
+        <h2>Adentro.</h2>
+        <p>Esperando que el Host arranque el juego...</p>
+    </div>
+
+    <div id="screen-prompt" class="screen">
+        <h2 id="prompt-text">Cargando pregunta...</h2>
+        <input type="text" id="answer-input" placeholder="Tirá tu mejor chamuyo...">
+        <br>
+        <button onclick="submitAnswer()">Enviar</button>
+    </div>
+
+    <div id="screen-waiting" class="screen">
+        <h2>Respuesta enviada</h2>
+        <p>Esperando al resto de los colgados...</p>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
