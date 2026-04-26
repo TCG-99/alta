@@ -86,7 +86,8 @@ function stopLocalTimer() {
 function handleGameState(data) {
     switch(data.type) {
         case 'LOBBY_UPDATE':
-            document.getElementById('display-room-code').innerText = data.code;
+            // FIX: was referencing non-existent 'display-room-code'; use 'lobby-code-big' instead
+            document.getElementById('lobby-code-big').innerText = data.code;
             const list = document.getElementById('player-list');
             list.innerHTML = '';
             data.players.forEach(p => {
@@ -131,21 +132,21 @@ function handleGameState(data) {
             
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
             
-            data.answers.forEach((ans) => {
-                // En ronda 3 votan todos a todos (menos a uno mismo)
-                // En rondas 1-2, si es tu prompt, no votás.
-                if (data.round === 3) {
-                    if (ans.authorId !== myId) {
-                        btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
-                    }
-                } else {
-                    if (isMyPrompt) {
-                        btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
+            // FIX: in rounds 1-2, determine the display once before the loop
+            // to avoid overwriting btnContainer.innerHTML on every iteration
+            if (data.round !== 3 && isMyPrompt) {
+                btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
+            } else {
+                data.answers.forEach((ans) => {
+                    if (data.round === 3) {
+                        if (ans.authorId !== myId) {
+                            btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
+                        }
                     } else {
                         btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
                     }
-                }
-            });
+                });
+            }
             
             startLocalTimer(data.time);
             showScreen('screen-voting');
@@ -181,7 +182,9 @@ function handleGameState(data) {
             data.players.sort((a,b) => b.score - a.score).forEach((p, i) => {
                 scoreList.innerHTML += `<li><span>${i===0?'👑 ':''}${p.name}</span> <span>${p.score} pts</span></li>`;
             });
-            if(isHost) document.getElementById('host-restart').style.display = 'block';
+            // FIX: show host-restart only if element exists and player is host
+            const restartBtn = document.getElementById('host-restart');
+            if (restartBtn) restartBtn.style.display = isHost ? 'block' : 'none';
             showScreen('screen-scores');
             break;
     }
@@ -193,15 +196,47 @@ function joinGame() {
 
     const code = document.getElementById('join-code').value.toUpperCase();
     if (!code) return alert("Poné un código.");
+
+    // FIX: show connection status in the UI without relying on a missing 'client-wait' element
+    const joinBtn = document.querySelector('#screen-home .btn-secondary');
+    if (joinBtn) {
+        joinBtn.disabled = true;
+        joinBtn.innerText = "Conectando...";
+    }
     
     peer = new Peer();
     
+    // FIX: handle peer errors (e.g. PeerJS server unavailable)
+    peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        alert(`Error de conexión: ${err.type}. Verificá el código e intentá de nuevo.`);
+        if (joinBtn) {
+            joinBtn.disabled = false;
+            joinBtn.innerText = "Unirse a Partida";
+        }
+        peer.destroy();
+        peer = null;
+    });
+
     peer.on('open', (id) => {
         myId = id;
         conn = peer.connect('sarasa-' + code);
         
+        // FIX: handle connection errors (e.g. wrong room code)
+        conn.on('error', (err) => {
+            console.error('Connection error:', err);
+            alert('No se pudo conectar a la sala. ¿El código es correcto?');
+            if (joinBtn) {
+                joinBtn.disabled = false;
+                joinBtn.innerText = "Unirse a Partida";
+            }
+        });
+
         conn.on('open', () => {
-            document.getElementById('client-wait').style.display = 'block';
+            if (joinBtn) {
+                joinBtn.disabled = false;
+                joinBtn.innerText = "Unirse a Partida";
+            }
             conn.send({ type: 'CMD_JOIN', name: myName, id: myId });
         });
         
@@ -250,6 +285,13 @@ async function createGame() {
     myId = 'HOST';
     const peerId = 'sarasa-' + code;
 
+    // FIX: give the host visual feedback while PeerJS initialises
+    const createBtn = document.querySelector('#host-setup button');
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerText = "Creando sala...";
+    }
+
     try {
         const res = await fetch('preguntas.json');
         if(res.ok) gameQuestions = await res.json();
@@ -258,6 +300,23 @@ async function createGame() {
     serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
 
     peer = new Peer(peerId);
+
+    // FIX: handle peer errors on the host side (e.g. room code already taken)
+    peer.on('error', (err) => {
+        console.error('Host peer error:', err);
+        isHost = false;
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerText = "Crear Nueva Sala";
+        }
+        if (err.type === 'unavailable-id') {
+            alert('Ese código de sala ya está en uso, intentá de nuevo.');
+        } else {
+            alert(`Error al crear la sala: ${err.type}`);
+        }
+        peer.destroy();
+        peer = null;
+    });
 
     peer.on('open', (id) => {
         serverState.roomCode = code;
@@ -268,6 +327,14 @@ async function createGame() {
         document.getElementById('room-display-tag').innerText = `SALA: ${code}`;
         document.getElementById('room-display-tag').style.display = 'block';
         document.getElementById('lobby-code-big').innerText = code;
+
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerText = "Crear Nueva Sala";
+        }
+
+        // FIX: host was never navigated to the lobby screen
+        showScreen('screen-lobby');
 
         broadcast({ 
             type: 'LOBBY_UPDATE', 
@@ -280,6 +347,21 @@ async function createGame() {
     peer.on('connection', (connection) => {
         hostConnections.push(connection);
         connection.on('data', (data) => handleCommandFromClient(data));
+
+        // FIX: clean up disconnected clients so ghost players don't persist
+        connection.on('close', () => {
+            hostConnections = hostConnections.filter(c => c !== connection);
+            // Only remove players from an active lobby, not mid-game
+            if (serverState.phase === 'LOBBY') {
+                serverState.players = serverState.players.filter(p => p.id !== connection.peer);
+                broadcast({
+                    type: 'LOBBY_UPDATE',
+                    players: serverState.players,
+                    code: serverState.roomCode,
+                    phase: serverState.phase
+                });
+            }
+        });
     });
 }
 
@@ -309,7 +391,11 @@ function handleCommandFromClient(data) {
         const pId = data.id;
         for (const [qId, text] of Object.entries(data.answers)) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
-            serverState.answers[qId].push({ authorId: pId, text: text });
+            const alreadyAnswered = serverState.answers[qId].some(a => a.authorId === pId);
+            // FIX: prevent duplicate answers from the same player (e.g. double-submit)
+            if (!alreadyAnswered) {
+                serverState.answers[qId].push({ authorId: pId, text: text });
+            }
         }
         
         let expectedAnswersPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
@@ -324,7 +410,12 @@ function handleCommandFromClient(data) {
     else if (data.type === 'CMD_VOTE') {
         const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
         if (!serverState.votes[currentPrompt.id]) serverState.votes[currentPrompt.id] = [];
-        serverState.votes[currentPrompt.id].push({voterId: data.voterId, votedFor: data.authorId});
+
+        // FIX: prevent double-voting from the same player
+        const alreadyVoted = serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId);
+        if (!alreadyVoted) {
+            serverState.votes[currentPrompt.id].push({voterId: data.voterId, votedFor: data.authorId});
+        }
         
         let expectedVotes = serverState.currentRound <= 2 ? serverState.players.length - 2 : serverState.players.length;
         if (serverState.votes[currentPrompt.id].length >= expectedVotes) {
