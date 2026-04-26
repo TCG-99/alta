@@ -8,6 +8,9 @@ let myName = "";
 let myAssignments = []; 
 let myAnswers = {}; 
 
+// Track whether answers have been submitted (for the retract feature)
+let myAnswersSubmitted = false;
+
 let serverState = {
     players: [], 
     unusedPrompts: [], 
@@ -59,8 +62,12 @@ function toggleHostView() {
 }
 
 let visualTimer;
+// Track remaining seconds locally so retract can check if time is left
+let localTimerRemaining = 0;
+
 function startLocalTimer(seconds) {
     let t = seconds;
+    localTimerRemaining = t;
     const container = document.getElementById('timer-container');
     const display = document.getElementById('global-timer');
     container.style.display = 'block';
@@ -69,6 +76,7 @@ function startLocalTimer(seconds) {
     clearInterval(visualTimer);
     visualTimer = setInterval(() => {
         t--;
+        localTimerRemaining = t;
         if(t >= 0) display.innerText = t;
         if(t <= 0) clearInterval(visualTimer);
     }, 1000);
@@ -76,6 +84,7 @@ function startLocalTimer(seconds) {
 
 function stopLocalTimer() {
     clearInterval(visualTimer);
+    localTimerRemaining = 0;
     if(document.getElementById('timer-container')) {
         document.getElementById('timer-container').style.display = 'none';
     }
@@ -86,7 +95,6 @@ function stopLocalTimer() {
 function handleGameState(data) {
     switch(data.type) {
         case 'LOBBY_UPDATE':
-            // FIX: was referencing non-existent 'display-room-code'; use 'lobby-code-big' instead
             document.getElementById('lobby-code-big').innerText = data.code;
             const list = document.getElementById('player-list');
             list.innerHTML = '';
@@ -100,7 +108,8 @@ function handleGameState(data) {
             
         case 'PHASE_ANSWERING':
             myAssignments = data.assignments;
-            myAnswers = {}; 
+            myAnswers = {};
+            myAnswersSubmitted = false;
             
             let roundText = data.round === 3 ? "RONDA FINAL" : `RONDA ${data.round}`;
             document.getElementById('answering-title').innerText = `${roundText}: Completá la frase`;
@@ -115,35 +124,48 @@ function handleGameState(data) {
                     </div>
                 `;
             });
-            document.getElementById('btn-submit-answers').disabled = false;
-            document.getElementById('btn-submit-answers').innerText = "Enviar Sarasa";
+
+            // Reset submit/retract button state
+            const submitBtn = document.getElementById('btn-submit-answers');
+            const retractBtn = document.getElementById('btn-retract-answers');
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Enviar Sarasa";
+            submitBtn.style.display = 'inline-block';
+            retractBtn.style.display = 'none';
+
             startLocalTimer(data.time);
             showScreen('screen-answering');
             break;
 
-        case 'PHASE_VOTING':
+        case 'PHASE_VOTING': {
             document.getElementById('vote-wait-msg').style.display = 'none';
             let voteRoundText = data.round === 3 ? "Votación Final" : "¡A votar!";
             document.getElementById('voting-title').innerText = voteRoundText;
             document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
             
             const btnContainer = document.getElementById('voting-buttons');
+            const answersPreview = document.getElementById('voting-answers-preview');
             btnContainer.innerHTML = '';
+            answersPreview.innerHTML = '';
             
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
-            
-            // FIX: in rounds 1-2, determine the display once before the loop
-            // to avoid overwriting btnContainer.innerHTML on every iteration
+
+            // FEATURE 2: show all answers as readable preview cards (always visible)
+            data.answers.forEach((ans) => {
+                answersPreview.innerHTML += `
+                    <div class="vote-answer-card" id="preview-${ans.authorId}">
+                        <span class="vote-answer-text">"${ans.text}"</span>
+                    </div>
+                `;
+            });
+
             if (data.round !== 3 && isMyPrompt) {
                 btnContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Le toca votar a los demás.</p>`;
             } else {
                 data.answers.forEach((ans) => {
-                    if (data.round === 3) {
-                        if (ans.authorId !== myId) {
-                            btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
-                        }
-                    } else {
-                        btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}')">"${ans.text}"</button>`;
+                    const canVote = data.round === 3 ? ans.authorId !== myId : true;
+                    if (canVote) {
+                        btnContainer.innerHTML += `<button class="vote-btn" onclick="sendVote('${ans.authorId}', this)">"${ans.text}"</button>`;
                     }
                 });
             }
@@ -151,9 +173,16 @@ function handleGameState(data) {
             startLocalTimer(data.time);
             showScreen('screen-voting');
             break;
+        }
 
         case 'VOTE_RESULT':
             stopLocalTimer();
+            // Reset the view (it may have been showing a round-scores panel)
+            document.getElementById('result-round-header').style.display = 'none';
+            document.getElementById('result-round-scores').style.display = 'none';
+            document.getElementById('result-prompt-text').style.display = 'block';
+            document.getElementById('result-details').style.display = 'block';
+
             document.getElementById('result-prompt-text').innerText = data.prompt.prompt;
             const resContainer = document.getElementById('result-details');
             resContainer.innerHTML = '';
@@ -175,6 +204,24 @@ function handleGameState(data) {
             showScreen('screen-vote-result');
             break;
 
+        // FEATURE 3: between-round leaderboard — reuses screen-vote-result with alternate content
+        case 'ROUND_SCORES':
+            stopLocalTimer();
+            document.getElementById('result-prompt-text').style.display = 'none';
+            document.getElementById('result-details').style.display = 'none';
+
+            const roundHeader = document.getElementById('result-round-header');
+            const roundScores = document.getElementById('result-round-scores');
+            roundHeader.innerText = `⏱ Fin de Ronda ${data.round} — Posiciones`;
+            roundHeader.style.display = 'block';
+            roundScores.innerHTML = '';
+            data.players.sort((a,b) => b.score - a.score).forEach((p, i) => {
+                roundScores.innerHTML += `<li><span>${i===0?'👑 ':''}${p.name}</span><span>${p.score} pts</span></li>`;
+            });
+            roundScores.style.display = 'block';
+            showScreen('screen-vote-result');
+            break;
+
         case 'PHASE_SCORES':
             stopLocalTimer();
             const scoreList = document.getElementById('final-scores');
@@ -182,7 +229,6 @@ function handleGameState(data) {
             data.players.sort((a,b) => b.score - a.score).forEach((p, i) => {
                 scoreList.innerHTML += `<li><span>${i===0?'👑 ':''}${p.name}</span> <span>${p.score} pts</span></li>`;
             });
-            // FIX: show host-restart only if element exists and player is host
             const restartBtn = document.getElementById('host-restart');
             if (restartBtn) restartBtn.style.display = isHost ? 'block' : 'none';
             showScreen('screen-scores');
@@ -197,7 +243,6 @@ function joinGame() {
     const code = document.getElementById('join-code').value.toUpperCase();
     if (!code) return alert("Poné un código.");
 
-    // FIX: show connection status in the UI without relying on a missing 'client-wait' element
     const joinBtn = document.querySelector('#screen-home .btn-secondary');
     if (joinBtn) {
         joinBtn.disabled = true;
@@ -206,7 +251,6 @@ function joinGame() {
     
     peer = new Peer();
     
-    // FIX: handle peer errors (e.g. PeerJS server unavailable)
     peer.on('error', (err) => {
         console.error('Peer error:', err);
         alert(`Error de conexión: ${err.type}. Verificá el código e intentá de nuevo.`);
@@ -222,7 +266,6 @@ function joinGame() {
         myId = id;
         conn = peer.connect('sarasa-' + code);
         
-        // FIX: handle connection errors (e.g. wrong room code)
         conn.on('error', (err) => {
             console.error('Connection error:', err);
             alert('No se pudo conectar a la sala. ¿El código es correcto?');
@@ -244,6 +287,7 @@ function joinGame() {
     });
 }
 
+// FEATURE 1: Submit answers — hides submit, shows retract, locks inputs
 function submitAnswers() {
     let allAnswered = true;
     myAssignments.forEach(q => {
@@ -257,16 +301,69 @@ function submitAnswers() {
         return;
     }
 
-    document.getElementById('btn-submit-answers').disabled = true;
-    document.getElementById('btn-submit-answers').innerText = "Esperando al resto...";
+    myAnswersSubmitted = true;
+
+    const submitBtn = document.getElementById('btn-submit-answers');
+    const retractBtn = document.getElementById('btn-retract-answers');
+    submitBtn.style.display = 'none';
+    retractBtn.style.display = 'inline-block';
+
+    // Lock inputs visually so player can see what they sent
+    myAssignments.forEach(q => {
+        const input = document.getElementById(`answer-${q.id}`);
+        if (input) input.disabled = true;
+    });
     
     const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: myAnswers, id: myId };
     if (isHost) handleCommandFromClient(payload);
     else conn.send(payload);
 }
 
-function sendVote(votedForAuthorId) {
-    document.getElementById('voting-buttons').innerHTML = '';
+// FEATURE 1: Retract answers while the timer is still running
+function retractAnswers() {
+    if (localTimerRemaining <= 0) {
+        alert("¡Se acabó el tiempo, no podés cambiar tu respuesta!");
+        return;
+    }
+
+    myAnswersSubmitted = false;
+    myAnswers = {};
+
+    const submitBtn = document.getElementById('btn-submit-answers');
+    const retractBtn = document.getElementById('btn-retract-answers');
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Enviar Sarasa";
+    submitBtn.style.display = 'inline-block';
+    retractBtn.style.display = 'none';
+
+    // Re-enable inputs
+    myAssignments.forEach(q => {
+        const input = document.getElementById(`answer-${q.id}`);
+        if (input) input.disabled = false;
+    });
+
+    // Tell the host to remove our answers so they're not counted
+    const payload = { type: 'CMD_RETRACT_ANSWERS', id: myId };
+    if (isHost) handleCommandFromClient(payload);
+    else conn.send(payload);
+}
+
+// FEATURE 2: after voting, highlight chosen card and dim vote buttons
+function sendVote(votedForAuthorId, clickedBtn) {
+    // Dim all vote buttons, highlight the chosen one
+    document.querySelectorAll('.vote-btn').forEach(b => {
+        b.disabled = true;
+        b.style.opacity = '0.35';
+    });
+    if (clickedBtn) {
+        clickedBtn.style.opacity = '1';
+        clickedBtn.style.outline = '3px solid var(--accent)';
+    }
+
+    // Highlight the matching preview card
+    const chosen = document.getElementById(`preview-${votedForAuthorId}`);
+    if (chosen) chosen.classList.add('voted-highlight');
+
     document.getElementById('vote-wait-msg').style.display = 'block';
     
     const payload = { type: 'CMD_VOTE', authorId: votedForAuthorId, voterId: myId };
@@ -285,7 +382,6 @@ async function createGame() {
     myId = 'HOST';
     const peerId = 'sarasa-' + code;
 
-    // FIX: give the host visual feedback while PeerJS initialises
     const createBtn = document.querySelector('#host-setup button');
     if (createBtn) {
         createBtn.disabled = true;
@@ -301,7 +397,6 @@ async function createGame() {
 
     peer = new Peer(peerId);
 
-    // FIX: handle peer errors on the host side (e.g. room code already taken)
     peer.on('error', (err) => {
         console.error('Host peer error:', err);
         isHost = false;
@@ -322,7 +417,6 @@ async function createGame() {
         serverState.roomCode = code;
         serverState.players.push({ id: myId, name: myName, score: 0 });
         
-        // UI Updates del Host
         document.getElementById('host-controls').style.display = 'block';
         document.getElementById('room-display-tag').innerText = `SALA: ${code}`;
         document.getElementById('room-display-tag').style.display = 'block';
@@ -333,7 +427,6 @@ async function createGame() {
             createBtn.innerText = "Crear Nueva Sala";
         }
 
-        // FIX: host was never navigated to the lobby screen
         showScreen('screen-lobby');
 
         broadcast({ 
@@ -348,10 +441,8 @@ async function createGame() {
         hostConnections.push(connection);
         connection.on('data', (data) => handleCommandFromClient(data));
 
-        // FIX: clean up disconnected clients so ghost players don't persist
         connection.on('close', () => {
             hostConnections = hostConnections.filter(c => c !== connection);
-            // Only remove players from an active lobby, not mid-game
             if (serverState.phase === 'LOBBY') {
                 serverState.players = serverState.players.filter(p => p.id !== connection.peer);
                 broadcast({
@@ -372,14 +463,12 @@ function broadcast(data) {
 
 function handleCommandFromClient(data) {
     if (data.type === 'CMD_JOIN') {
-        // ANTI-FANTASMAS
         const existingIdx = serverState.players.findIndex(p => p.id === data.id);
         if (existingIdx !== -1) {
             serverState.players[existingIdx].name = data.name;
         } else {
             serverState.players.push({ id: data.id, name: data.name, score: 0 });
         }
-        
         broadcast({ 
             type: 'LOBBY_UPDATE', 
             players: serverState.players, 
@@ -392,7 +481,6 @@ function handleCommandFromClient(data) {
         for (const [qId, text] of Object.entries(data.answers)) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
             const alreadyAnswered = serverState.answers[qId].some(a => a.authorId === pId);
-            // FIX: prevent duplicate answers from the same player (e.g. double-submit)
             if (!alreadyAnswered) {
                 serverState.answers[qId].push({ authorId: pId, text: text });
             }
@@ -407,11 +495,18 @@ function handleCommandFromClient(data) {
             startVotingPhase();
         }
     }
+    // FEATURE 1: remove this player's answers from the current round so they can re-submit
+    else if (data.type === 'CMD_RETRACT_ANSWERS') {
+        const pId = data.id;
+        for (const qId of Object.keys(serverState.answers)) {
+            serverState.answers[qId] = serverState.answers[qId].filter(a => a.authorId !== pId);
+        }
+        // No broadcast needed — silently un-count them
+    }
     else if (data.type === 'CMD_VOTE') {
         const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
         if (!serverState.votes[currentPrompt.id]) serverState.votes[currentPrompt.id] = [];
 
-        // FIX: prevent double-voting from the same player
         const alreadyVoted = serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId);
         if (!alreadyVoted) {
             serverState.votes[currentPrompt.id].push({voterId: data.voterId, votedFor: data.authorId});
@@ -457,7 +552,6 @@ function startRound() {
             ];
         }
     } else {
-        // Ronda Final igual para todos
         if (serverState.unusedPrompts.length < 1) {
             serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
         }
@@ -510,7 +604,9 @@ function startVotingPhase() {
         if (serverState.currentRound > serverState.maxRounds) {
             broadcast({ type: 'PHASE_SCORES', players: serverState.players });
         } else {
-            startRound();
+            // FEATURE 3: broadcast between-round leaderboard, then start next round after 5s
+            broadcast({ type: 'ROUND_SCORES', round: serverState.currentRound - 1, players: serverState.players });
+            setTimeout(() => startRound(), 5000);
         }
         return;
     }
@@ -518,7 +614,6 @@ function startVotingPhase() {
     const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
     let promptAnswers = serverState.answers[currentPrompt.id] || [];
 
-    // REUTILIZAR RESPUESTA (Caso de jugador sin pareja o respuesta vacía)
     if (serverState.currentRound <= 2 && promptAnswers.length < 2) {
         let safetyAnswer = findReplacementAnswer(currentPrompt.id);
         promptAnswers.push({ 
