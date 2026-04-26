@@ -23,20 +23,54 @@
         .timer { font-size: 2rem; font-weight: bold; color: var(--accent); border: 4px solid var(--accent); border-radius: 50%; width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
         ul { list-style: none; padding: 0; font-size: 1.2rem; }
         li { background: rgba(255,255,255,0.1); padding: 8px; margin: 5px 0; border-radius: 8px; }
+        li span:last-child { float: right; color: var(--accent); font-weight: bold; }
 
-        /* FIX: added missing .prompt-card styles */
+        /* Prompt cards in answering phase */
         .prompt-card { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 15px; margin: 10px 0; text-align: left; }
         .prompt-text { font-weight: bold; margin-bottom: 10px; font-size: 1.1rem; color: var(--accent); }
         .prompt-card input { width: calc(100% - 30px); margin: 0; }
+        .prompt-card input:disabled { background: #bdc3c7; color: #7f8c8d; cursor: not-allowed; }
 
-        /* FIX: added missing .vote-btn styles */
-        .vote-btn { background-color: #27ae60; font-style: italic; }
+        /* FEATURE 1: retract button */
+        #btn-retract-answers { background-color: #8e44ad; display: none; }
+        #btn-retract-answers:hover { background-color: #732d91; }
+
+        /* Vote buttons */
+        .vote-btn { background-color: #27ae60; font-style: italic; transition: opacity 0.2s, outline 0.2s; }
         .vote-btn:hover { background-color: #229954; }
+
+        /* FEATURE 2: answer preview cards shown during voting */
+        #voting-answers-preview { margin-bottom: 12px; }
+        .vote-answer-card {
+            background: rgba(0,0,0,0.25);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin: 6px 0;
+            font-style: italic;
+            font-size: 1.05rem;
+            text-align: left;
+            transition: border-color 0.25s, background 0.25s;
+        }
+        .vote-answer-card.voted-highlight {
+            border-color: var(--accent);
+            background: rgba(241, 196, 15, 0.12);
+        }
 
         .voter-names { font-size: 0.85rem; color: #bdc3c7; margin-top: 5px; }
 
-        /* FIX: added missing #vote-wait-msg style */
         #vote-wait-msg { color: var(--accent); font-weight: bold; padding: 10px; display: none; }
+
+        /* FEATURE 3: between-round leaderboard inside screen-vote-result */
+        #result-round-header {
+            display: none;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 15px;
+        }
+        #result-round-scores { display: none; }
+        #result-round-scores li { display: flex; justify-content: space-between; padding: 10px 14px; }
     </style>
 </head>
 <body>
@@ -47,6 +81,7 @@
     <div class="container">
         <div id="room-display-tag" class="room-tag">SALA: ----</div>
 
+        <!-- HOME -->
         <div id="screen-home" class="screen active">
             <input type="text" id="player-name" placeholder="Tu Nombre" maxlength="15">
             <input type="text" id="join-code" placeholder="CÓDIGO DE SALA" maxlength="4" style="text-transform: uppercase;">
@@ -58,9 +93,9 @@
             </div>
         </div>
 
+        <!-- LOBBY -->
         <div id="screen-lobby" class="screen">
             <h2>Sala de Espera</h2>
-            <!-- FIX: was referenced as 'lobby-code-big' in JS, which is correct; removed stale 'display-room-code' reference -->
             <div id="lobby-code-big" style="font-size: 2rem; color: var(--accent); margin-bottom: 15px;">----</div>
             <p>Jugadores:</p>
             <ul id="player-list"></ul>
@@ -69,30 +104,40 @@
             </div>
         </div>
 
+        <!-- ANSWERING -->
         <div id="screen-answering" class="screen">
             <h2 id="answering-title">Completá la frase:</h2>
             <div id="prompts-container"></div>
-            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar</button>
+            <!-- FEATURE 1: submit + retract buttons -->
+            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar Sarasa</button>
+            <button id="btn-retract-answers" onclick="retractAnswers()">✏️ Cambiar respuesta</button>
         </div>
 
+        <!-- VOTING -->
         <div id="screen-voting" class="screen">
             <h2 id="voting-title">Votación</h2>
-            <div id="vote-prompt-text" style="font-weight: bold; margin-bottom: 15px;"></div>
+            <div id="vote-prompt-text" style="font-weight: bold; margin-bottom: 12px;"></div>
+            <!-- FEATURE 2: answer preview cards (always visible) -->
+            <div id="voting-answers-preview"></div>
             <div id="voting-buttons"></div>
-            <!-- FIX: was referenced in JS but missing from HTML -->
             <div id="vote-wait-msg">Esperando a los demás... 🍵</div>
         </div>
 
+        <!-- VOTE RESULT  (also used for FEATURE 3: between-round leaderboard) -->
         <div id="screen-vote-result" class="screen">
             <h2>Resultados</h2>
+            <!-- FEATURE 3: round-scores panel (hidden by default, shown instead of result content) -->
+            <div id="result-round-header"></div>
+            <ul id="result-round-scores"></ul>
+            <!-- Normal vote result content -->
             <div id="result-prompt-text" style="font-style: italic; margin-bottom: 15px;"></div>
             <div id="result-details"></div>
         </div>
 
+        <!-- FINAL SCORES -->
         <div id="screen-scores" class="screen">
             <h2>Posiciones</h2>
             <ul id="final-scores"></ul>
-            <!-- FIX: was referenced as 'host-restart' in JS but missing from HTML -->
             <button id="host-restart" style="display:none;" onclick="location.reload()">Nueva Partida</button>
             <button onclick="location.reload()">Salir</button>
         </div>
