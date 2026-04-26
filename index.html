@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alta Sarasa - P2P Party Game</title>
+    <title>Alta Sarasa</title>
     <style>
         :root { --bg: #1a252f; --card: #2c3e50; --primary: #e74c3c; --accent: #f1c40f; --text: #ecf0f1; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); text-align: center; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -13,13 +13,30 @@
         .active { display: block; }
         button { background-color: var(--primary); color: white; border: none; padding: 15px 20px; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin: 10px 5px; transition: transform 0.1s, background 0.3s; width: 90%; }
         button:hover { background-color: #c0392b; transform: scale(1.02); }
+        button:disabled { background-color: #7f8c8d; cursor: not-allowed; transform: none; }
         .btn-secondary { background-color: #3498db; }
+        .btn-secondary:hover { background-color: #2980b9; }
         .btn-host-mode { background: transparent; border: 1px solid #7f8c8d; color: #7f8c8d; font-size: 0.8rem; width: auto; padding: 5px 10px; margin-top: 20px; }
-        input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #34495e; background: #ecf0f1; color: #2c3e50; margin: 10px; width: 85%; text-align: center; font-weight: bold; outline: none;}
+        .btn-host-mode:hover { background: rgba(127,140,141,0.2); transform: none; }
+        input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #34495e; background: #ecf0f1; color: #2c3e50; margin: 10px; width: 85%; text-align: center; font-weight: bold; outline: none; }
         .room-tag { position: absolute; top: 10px; right: 15px; font-weight: bold; color: var(--accent); display: none; }
         .timer { font-size: 2rem; font-weight: bold; color: var(--accent); border: 4px solid var(--accent); border-radius: 50%; width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
         ul { list-style: none; padding: 0; font-size: 1.2rem; }
         li { background: rgba(255,255,255,0.1); padding: 8px; margin: 5px 0; border-radius: 8px; }
+
+        /* FIX: added missing .prompt-card styles */
+        .prompt-card { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 15px; margin: 10px 0; text-align: left; }
+        .prompt-text { font-weight: bold; margin-bottom: 10px; font-size: 1.1rem; color: var(--accent); }
+        .prompt-card input { width: calc(100% - 30px); margin: 0; }
+
+        /* FIX: added missing .vote-btn styles */
+        .vote-btn { background-color: #27ae60; font-style: italic; }
+        .vote-btn:hover { background-color: #229954; }
+
+        .voter-names { font-size: 0.85rem; color: #bdc3c7; margin-top: 5px; }
+
+        /* FIX: added missing #vote-wait-msg style */
+        #vote-wait-msg { color: var(--accent); font-weight: bold; padding: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -43,6 +60,7 @@
 
         <div id="screen-lobby" class="screen">
             <h2>Sala de Espera</h2>
+            <!-- FIX: was referenced as 'lobby-code-big' in JS, which is correct; removed stale 'display-room-code' reference -->
             <div id="lobby-code-big" style="font-size: 2rem; color: var(--accent); margin-bottom: 15px;">----</div>
             <p>Jugadores:</p>
             <ul id="player-list"></ul>
@@ -61,17 +79,21 @@
             <h2 id="voting-title">Votación</h2>
             <div id="vote-prompt-text" style="font-weight: bold; margin-bottom: 15px;"></div>
             <div id="voting-buttons"></div>
+            <!-- FIX: was referenced in JS but missing from HTML -->
+            <div id="vote-wait-msg">Esperando a los demás... 🍵</div>
         </div>
 
         <div id="screen-vote-result" class="screen">
             <h2>Resultados</h2>
-            <div id="result-prompt-text" style="font-style: italic;"></div>
+            <div id="result-prompt-text" style="font-style: italic; margin-bottom: 15px;"></div>
             <div id="result-details"></div>
         </div>
 
         <div id="screen-scores" class="screen">
             <h2>Posiciones</h2>
             <ul id="final-scores"></ul>
+            <!-- FIX: was referenced as 'host-restart' in JS but missing from HTML -->
+            <button id="host-restart" style="display:none;" onclick="location.reload()">Nueva Partida</button>
             <button onclick="location.reload()">Salir</button>
         </div>
     </div>
