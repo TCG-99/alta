@@ -5,126 +5,492 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alta Sarasa</title>
     <style>
-        :root { --bg: #1a252f; --card: #2c3e50; --primary: #e74c3c; --accent: #f1c40f; --text: #ecf0f1; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); text-align: center; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        h1 { color: var(--accent); font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; }
-        .container { background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 100%; max-width: 500px; margin-top: 20px; position: relative; }
-        .screen { display: none; }
-        .active { display: block; }
-        button { background-color: var(--primary); color: white; border: none; padding: 15px 20px; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin: 10px 5px; transition: transform 0.1s, background 0.3s; width: 90%; }
-        button:hover { background-color: #c0392b; transform: scale(1.02); }
-        button:disabled { background-color: #7f8c8d; cursor: not-allowed; transform: none; }
-        .btn-secondary { background-color: #3498db; }
-        .btn-secondary:hover { background-color: #2980b9; }
-        .btn-host-mode { background: transparent; border: 1px solid #7f8c8d; color: #7f8c8d; font-size: 0.8rem; width: auto; padding: 5px 10px; margin-top: 20px; }
-        .btn-host-mode:hover { background: rgba(127,140,141,0.2); transform: none; }
-        input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #34495e; background: #ecf0f1; color: #2c3e50; margin: 10px; width: 85%; text-align: center; font-weight: bold; outline: none; }
-        .room-tag { position: absolute; top: 10px; right: 15px; font-weight: bold; color: var(--accent); display: none; }
-        .timer { font-size: 2rem; font-weight: bold; color: var(--accent); border: 4px solid var(--accent); border-radius: 50%; width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-        ul { list-style: none; padding: 0; font-size: 1.2rem; }
-        li { background: rgba(255,255,255,0.1); padding: 8px; margin: 5px 0; border-radius: 8px; }
-        li span:last-child { float: right; color: var(--accent); font-weight: bold; }
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;900&display=swap');
 
-        /* ── Prompt cards (answering phase) ── */
-        .prompt-card { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 15px; margin: 10px 0; text-align: left; }
-        .prompt-text { font-weight: bold; margin-bottom: 10px; font-size: 1.1rem; color: var(--accent); }
-        .prompt-card input { width: calc(100% - 30px); margin: 0; }
-        .prompt-card input:disabled { background: #bdc3c7; color: #7f8c8d; cursor: not-allowed; }
+        :root {
+            --bg: #1a252f;
+            --card: #2c3e50;
+            --primary: #e74c3c;
+            --accent: #f1c40f;
+            --text: #ecf0f1;
+            --green: #27ae60;
+            --blue: #3498db;
+            --purple: #8e44ad;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Nunito', 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(231,76,60,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(241,196,15,0.06) 0%, transparent 50%);
+            color: var(--text);
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            color: var(--accent);
+            font-size: 3.2rem;
+            letter-spacing: 4px;
+            text-shadow: 0 0 30px rgba(241,196,15,0.4), 3px 3px 0 rgba(0,0,0,0.5);
+            margin-bottom: 8px;
+            animation: titlePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { text-shadow: 0 0 30px rgba(241,196,15,0.4), 3px 3px 0 rgba(0,0,0,0.5); }
+            50% { text-shadow: 0 0 55px rgba(241,196,15,0.75), 3px 3px 0 rgba(0,0,0,0.5); }
+        }
+
+        .container {
+            background: var(--card);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .screen { display: none; }
+        .active { display: block; animation: screenIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        @keyframes screenIn {
+            from { opacity: 0; transform: translateY(18px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 2px;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.15rem;
+            font-weight: 900;
+            font-family: 'Nunito', sans-serif;
+            cursor: pointer;
+            border-radius: 10px;
+            margin: 8px 5px;
+            transition: transform 0.12s, background 0.2s, box-shadow 0.2s;
+            width: 90%;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3), 0 6px 20px rgba(231,76,60,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+            pointer-events: none;
+        }
+        button:hover:not(:disabled) {
+            background-color: #c0392b;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3), 0 10px 25px rgba(231,76,60,0.35);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(1px) scale(0.99);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .btn-secondary {
+            background-color: var(--blue);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3), 0 6px 20px rgba(52,152,219,0.2);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #2980b9;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3), 0 10px 25px rgba(52,152,219,0.35);
+        }
+
+        .btn-back {
+            background: transparent;
+            border: 1px solid rgba(127,140,141,0.4);
+            color: #95a5a6;
+            font-size: 0.85rem;
+            width: auto;
+            padding: 6px 16px;
+            margin-top: 10px;
+            box-shadow: none;
+            font-weight: 700;
+        }
+        .btn-back:hover:not(:disabled) {
+            background: rgba(127,140,141,0.1);
+            transform: none;
+            box-shadow: none;
+            color: #bdc3c7;
+        }
+
+        input {
+            padding: 14px 18px;
+            font-size: 1.15rem;
+            border-radius: 10px;
+            border: 2px solid rgba(52,73,94,0.8);
+            background: rgba(236,240,241,0.95);
+            color: #2c3e50;
+            margin: 8px 0;
+            width: 90%;
+            text-align: center;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+        }
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(241,196,15,0.25);
+            transform: scale(1.01);
+        }
+
+        .room-tag {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            font-weight: 900;
+            font-size: 0.85rem;
+            color: var(--accent);
+            display: none;
+            letter-spacing: 1px;
+            background: rgba(241,196,15,0.1);
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(241,196,15,0.3);
+        }
+
+        /* ── Animated SVG Timer ── */
+        #timer-container {
+            display: none;
+            margin-bottom: 12px;
+        }
+
+        .timer-svg-wrap {
+            position: relative;
+            display: inline-block;
+            width: 72px;
+            height: 72px;
+        }
+
+        #timer-svg {
+            transform: rotate(-90deg);
+            width: 72px;
+            height: 72px;
+        }
+
+        #timer-track {
+            fill: none;
+            stroke: rgba(255,255,255,0.1);
+            stroke-width: 5;
+        }
+
+        #timer-arc {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 5;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s linear, stroke 0.6s ease;
+        }
+
+        #timer-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.65rem;
+            color: var(--accent);
+            line-height: 1;
+            pointer-events: none;
+            transition: color 0.5s ease;
+            letter-spacing: 1px;
+        }
+
+        .timer-urgent #timer-arc {
+            stroke: var(--primary);
+        }
+        .timer-urgent #timer-number {
+            color: var(--primary);
+            animation: urgentPulse 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes urgentPulse {
+            from { transform: translate(-50%, -50%) scale(1); }
+            to   { transform: translate(-50%, -50%) scale(1.15); }
+        }
+
+        ul { list-style: none; padding: 0; font-size: 1.1rem; }
+        li {
+            background: rgba(255,255,255,0.07);
+            padding: 10px 14px;
+            margin: 6px 0;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        li span:last-child { color: var(--accent); font-weight: bold; }
+
+        /* ── HOME two-step ── */
+        .step-hidden { display: none !important; }
+        .step-subtitle {
+            font-size: 0.95rem;
+            color: #95a5a6;
+            margin-bottom: 18px;
+            font-weight: 700;
+        }
+        .greeting-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.2rem;
+            color: var(--accent);
+            letter-spacing: 3px;
+            margin-bottom: 4px;
+            animation: greetPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes greetPop {
+            from { transform: scale(0.6); opacity: 0; }
+            to   { transform: scale(1); opacity: 1; }
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 5%;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            font-weight: 900;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+        #step-action { animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(25px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── Lobby ── */
+        #lobby-code-big {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem;
+            color: var(--accent);
+            letter-spacing: 10px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 20px rgba(241,196,15,0.3);
+        }
+
+        /* ── Answering ── */
+        .prompt-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 12px 0;
+            text-align: left;
+            border: 2px solid rgba(255,255,255,0.06);
+            transition: border-color 0.4s, background 0.4s;
+        }
+        .prompt-card.answered {
+            border-color: rgba(39,174,96,0.5);
+            background: rgba(39,174,96,0.07);
+        }
+        .prompt-text {
+            font-weight: 800;
+            margin-bottom: 10px;
+            font-size: 1.05rem;
+            color: var(--accent);
+            line-height: 1.4;
+        }
+        .prompt-card input {
+            width: 100%;
+            margin: 0;
+            text-align: left;
+        }
+        .prompt-card input:disabled {
+            background: rgba(189,195,199,0.45);
+            color: #7f8c8d;
+            cursor: not-allowed;
+            border-color: transparent;
+        }
+
+        /* ── Ready Tracker ── */
+        #ready-tracker {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 14px 0 8px;
+            text-align: left;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .tracker-title {
+            font-weight: 900;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+        }
+        .ready-player-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 2px;
+            font-size: 0.9rem;
+            transition: all 0.4s;
+        }
+        .ready-icon { font-size: 1rem; width: 22px; text-align: center; transition: all 0.3s; }
+        .ready-icon.just-ready { animation: popIcon 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes popIcon {
+            0%   { transform: scale(0) rotate(-180deg); }
+            60%  { transform: scale(1.3) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .ready-name { flex: 1; font-weight: 700; }
+        .ready-status {
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .ready-status.done  { color: var(--green); }
+        .ready-status.wait  { color: #7f8c8d; animation: typingDot 1.4s ease-in-out infinite; }
+        @keyframes typingDot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
 
         /* Retract button */
-        #btn-retract-answers { background-color: #8e44ad; display: none; }
-        #btn-retract-answers:hover { background-color: #732d91; }
+        #btn-retract-answers {
+            background-color: var(--purple);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3), 0 6px 20px rgba(142,68,173,0.2);
+            display: none;
+        }
+        #btn-retract-answers:hover:not(:disabled) {
+            background-color: #732d91;
+        }
 
-        /* ── Unified answer card ──
-           Used for both "preview-only" cards (can't vote) and "vote" cards (can vote).
-           The modifier classes change color and interactivity. */
+        /* ── Answer cards ── */
         .answer-card {
             display: block;
             width: 100%;
-            box-sizing: border-box;
             background: rgba(0,0,0,0.25);
             border: 2px solid rgba(255,255,255,0.08);
-            border-radius: 10px;
-            padding: 13px 16px;
+            border-radius: 12px;
+            padding: 14px 18px;
             margin: 8px 0;
             font-style: italic;
             font-size: 1.08rem;
             text-align: left;
             color: var(--text);
-            transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.1s;
+            transition: border-color 0.2s, background 0.2s, opacity 0.25s, transform 0.15s;
             cursor: default;
+            animation: cardReveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
+        @keyframes cardReveal {
+            from { opacity: 0; transform: translateX(-18px) scale(0.95); }
+            to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .answer-card:nth-child(2) { animation-delay: 0.09s; }
+        .answer-card:nth-child(3) { animation-delay: 0.18s; }
 
-        /* Votable card — green tint, pointer cursor, hover effect */
         .answer-card.votable {
-            background: rgba(39,174,96,0.15);
-            border-color: rgba(39,174,96,0.5);
+            background: rgba(39,174,96,0.12);
+            border-color: rgba(39,174,96,0.4);
             cursor: pointer;
-            /* reset the global button styles that bleed in */
             font-weight: normal;
-            font-family: inherit;
+            font-family: 'Nunito', sans-serif;
             font-size: 1.08rem;
+            font-style: italic;
             width: 100%;
-            padding: 13px 16px;
-            border-radius: 10px;
+            padding: 14px 18px;
+            border-radius: 12px;
             margin: 8px 0;
+            box-shadow: 0 3px 12px rgba(39,174,96,0.1);
         }
         .answer-card.votable:hover:not(:disabled) {
-            background: rgba(39,174,96,0.28);
+            background: rgba(39,174,96,0.25);
             border-color: #27ae60;
-            transform: scale(1.01);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(39,174,96,0.25);
         }
-        .answer-card.votable:disabled {
-            cursor: not-allowed;
-            transform: none;
+        .answer-card.votable:active:not(:disabled) {
+            transform: translateY(0) scale(1);
         }
-
-        /* After the player has voted: highlight chosen, dim others */
         .answer-card.voted-chosen {
             border-color: var(--accent) !important;
             background: rgba(241,196,15,0.15) !important;
             opacity: 1 !important;
+            box-shadow: 0 0 25px rgba(241,196,15,0.25) !important;
         }
-        .answer-card.voted-other {
-            opacity: 0.35;
+        .answer-card.voted-other { opacity: 0.3; }
+
+        #vote-wait-msg {
+            color: var(--accent);
+            font-weight: 900;
+            padding: 12px;
+            display: none;
+            animation: waitBob 1.6s ease-in-out infinite;
+        }
+        @keyframes waitBob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
         }
 
-        #vote-wait-msg { color: var(--accent); font-weight: bold; padding: 10px; display: none; }
-
-        /* ── Result cards (vote result screen) ── */
+        /* ── Result cards ── */
         .result-card {
             background: rgba(0,0,0,0.25);
             border: 2px solid rgba(255,255,255,0.08);
-            border-radius: 10px;
-            padding: 14px 16px;
+            border-radius: 12px;
+            padding: 14px 18px;
             margin: 10px 0;
             text-align: left;
-            position: relative;
+            animation: cardReveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
+        .result-card:nth-child(1) { animation-delay: 0s; }
+        .result-card:nth-child(2) { animation-delay: 0.1s; }
         .result-card.is-winner {
             border-color: var(--accent);
-            background: rgba(241,196,15,0.1);
+            background: rgba(241,196,15,0.08);
+            box-shadow: 0 0 28px rgba(241,196,15,0.15);
         }
         .result-card.is-jinx {
             border-color: #e74c3c;
-            background: rgba(231,76,60,0.1);
+            background: rgba(231,76,60,0.08);
         }
-
-        /* Badge row sits above the answer text */
-        .result-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 9px;
-        }
+        .result-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 3px 9px;
+            padding: 3px 10px;
             border-radius: 20px;
             font-size: 0.78rem;
-            font-weight: bold;
+            font-weight: 900;
             font-style: normal;
             white-space: nowrap;
         }
@@ -134,56 +500,152 @@
         .badge-sarasa  { background: rgba(231,76,60,0.25);  border: 1px solid #e74c3c; color: #f1948a; }
         .badge-nobody  { background: rgba(127,140,141,0.2); border: 1px solid #7f8c8d; color: #aab7b8; }
 
-        .result-answer-text {
-            font-style: italic;
-            font-size: 1.08rem;
-            line-height: 1.4;
-        }
-        .result-voters {
-            margin-top: 7px;
-            font-size: 0.82rem;
-            color: #bdc3c7;
-        }
+        .result-answer-text { font-style: italic; font-size: 1.08rem; line-height: 1.4; }
+        .result-voters { margin-top: 7px; font-size: 0.82rem; color: #bdc3c7; }
 
-        /* ── Between-round leaderboard (reuses screen-vote-result) ── */
+        /* ── Between-round leaderboard ── */
         #result-round-header {
             display: none;
-            font-size: 1.3rem;
-            font-weight: bold;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
             color: var(--accent);
             margin-bottom: 15px;
         }
         #result-round-scores { display: none; }
-        #result-round-scores li { display: flex; justify-content: space-between; padding: 10px 14px; }
+        #result-round-scores li {
+            animation: cardReveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        #result-round-scores li:nth-child(1) { animation-delay: 0.05s; }
+        #result-round-scores li:nth-child(2) { animation-delay: 0.13s; }
+        #result-round-scores li:nth-child(3) { animation-delay: 0.21s; }
+        #result-round-scores li:nth-child(4) { animation-delay: 0.29s; }
+
+        /* ── Final scores ── */
+        #final-scores li { animation: cardReveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        #final-scores li:nth-child(1) {
+            animation-delay: 0.05s;
+            font-size: 1.15rem;
+            background: rgba(241,196,15,0.1);
+            border: 1px solid rgba(241,196,15,0.3);
+        }
+        #final-scores li:nth-child(2) { animation-delay: 0.15s; }
+        #final-scores li:nth-child(3) { animation-delay: 0.25s; }
+
+        /* ── Toast ── */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .toast {
+            background: rgba(26,37,47,0.97);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--text);
+            padding: 11px 22px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 0.92rem;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+            animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            white-space: nowrap;
+        }
+        .toast.accent { border-color: rgba(241,196,15,0.5); color: var(--accent); }
+        .toast.success { border-color: rgba(39,174,96,0.5); color: #82e0aa; }
+        .toast.removing { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.88); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to   { opacity: 0; transform: translateY(-10px) scale(0.9); }
+        }
+
+        /* ── Confetti ── */
+        .confetti-wrap {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9000;
+            overflow: hidden;
+        }
+        .cp {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            top: -20px;
+            border-radius: 2px;
+            animation: cfFall linear forwards;
+        }
+        @keyframes cfFall {
+            0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+            85%  { opacity: 1; }
+            100% { transform: translateY(110vh) rotate(780deg); opacity: 0; }
+        }
     </style>
 </head>
 <body>
 
     <h1>🧉 Alta Sarasa</h1>
-    <div id="timer-container" style="display:none;"><div class="timer" id="global-timer">--</div></div>
+    <div id="timer-container">
+        <div class="timer-svg-wrap">
+            <svg id="timer-svg" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+                <circle id="timer-track" cx="36" cy="36" r="31"/>
+                <circle id="timer-arc"   cx="36" cy="36" r="31"/>
+            </svg>
+            <div id="timer-number">--</div>
+        </div>
+    </div>
 
     <div class="container">
         <div id="room-display-tag" class="room-tag">SALA: ----</div>
 
         <!-- HOME -->
         <div id="screen-home" class="screen active">
-            <input type="text" id="player-name" placeholder="Tu Nombre" maxlength="15">
-            <input type="text" id="join-code" placeholder="CÓDIGO DE SALA" maxlength="4" style="text-transform: uppercase;">
-            <button class="btn-secondary" onclick="joinGame()">Unirse a Partida</button>
-            <button class="btn-host-mode" onclick="toggleHostView()">Activar Modo Anfitrión</button>
-            <div id="host-setup" style="display:none; margin-top: 10px;">
-                <button onclick="createGame()">Crear Nueva Sala</button>
+            <!-- Step 1: Name -->
+            <div id="step-name">
+                <h2>¿Cómo te llamás?</h2>
+                <p class="step-subtitle">Elegí tu apodo para la partida</p>
+                <input type="text" id="player-name" placeholder="Tu Nombre" maxlength="15"
+                       onkeydown="if(event.key==='Enter') goToStepAction()">
+                <button onclick="goToStepAction()">Continuar →</button>
+            </div>
+
+            <!-- Step 2: Join or Host -->
+            <div id="step-action" class="step-hidden">
+                <div class="greeting-name" id="greeting-display"></div>
+                <p class="step-subtitle">¿Qué querés hacer?</p>
+
+                <input type="text" id="join-code" placeholder="CÓDIGO DE SALA" maxlength="4"
+                       style="text-transform: uppercase;"
+                       onkeydown="if(event.key==='Enter') joinGame()">
+                <button class="btn-secondary" onclick="joinGame()">Unirse a Partida</button>
+
+                <div class="divider">o</div>
+
+                <button onclick="createGame()">Crear Nueva Sala 🏠</button>
+
+                <br>
+                <button class="btn-back" onclick="goBackToName()">← Cambiar nombre</button>
             </div>
         </div>
 
         <!-- LOBBY -->
         <div id="screen-lobby" class="screen">
             <h2>Sala de Espera</h2>
-            <div id="lobby-code-big" style="font-size: 2rem; color: var(--accent); margin-bottom: 15px;">----</div>
-            <p>Jugadores:</p>
+            <div id="lobby-code-big">----</div>
+            <p style="color:#7f8c8d; font-size:0.82rem; margin:-8px 0 14px; font-weight:700; letter-spacing:1px;">COMPARTÍ ESTE CÓDIGO</p>
             <ul id="player-list"></ul>
-            <div id="host-controls" style="display: none;">
-                <button onclick="startGame()">¡Arrancar!</button>
+            <div id="host-controls" style="display: none; margin-top: 16px;">
+                <button onclick="startGame()">¡Arrancar! 🧉</button>
             </div>
         </div>
 
@@ -191,25 +653,28 @@
         <div id="screen-answering" class="screen">
             <h2 id="answering-title">Completá la frase:</h2>
             <div id="prompts-container"></div>
-            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar Sarasa</button>
+            <div id="ready-tracker">
+                <div class="tracker-title">Estado de los jugadores</div>
+                <div id="ready-list"></div>
+            </div>
+            <button id="btn-submit-answers" onclick="submitAnswers()">Enviar Sarasa 🧉</button>
             <button id="btn-retract-answers" onclick="retractAnswers()">✏️ Cambiar respuesta</button>
         </div>
 
         <!-- VOTING -->
         <div id="screen-voting" class="screen">
-            <h2 id="voting-title">Votación</h2>
-            <div id="vote-prompt-text" style="font-weight: bold; margin-bottom: 12px;"></div>
-            <!-- JS renders either votable buttons OR read-only preview cards here, never both -->
+            <h2 id="voting-title">¡A votar!</h2>
+            <div id="vote-prompt-text" style="font-weight: 800; margin-bottom: 14px; font-size: 1.05rem; color: var(--accent);"></div>
             <div id="voting-cards"></div>
             <div id="vote-wait-msg">Esperando a los demás... 🍵</div>
         </div>
 
-        <!-- VOTE RESULT (also hosts between-round leaderboard) -->
+        <!-- VOTE RESULT -->
         <div id="screen-vote-result" class="screen">
             <h2 id="vote-result-title">Resultados</h2>
             <div id="result-round-header"></div>
             <ul id="result-round-scores"></ul>
-            <div id="result-prompt-text" style="font-style: italic; margin-bottom: 15px;"></div>
+            <div id="result-prompt-text" style="font-style: italic; margin-bottom: 15px; color: #95a5a6;"></div>
             <div id="result-details"></div>
         </div>
 
@@ -221,6 +686,8 @@
             <button onclick="location.reload()">Salir</button>
         </div>
     </div>
+
+    <div id="toast-container"></div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
