@@ -158,7 +158,7 @@ function goToStepAction() {
     document.getElementById('step-name').classList.add('step-hidden');
     const stepAction = document.getElementById('step-action');
     stepAction.classList.remove('step-hidden');
-    document.getElementById('greeting-display').innerText = `¡Hola, ${name}! 🧉`;
+    document.getElementById('greeting-display').innerText = `¡Hola, ${name}!`;
     setTimeout(() => document.getElementById('join-code').focus(), 50);
 }
 
