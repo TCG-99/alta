@@ -154,11 +154,11 @@ function goToStepAction() {
         document.getElementById('player-name').focus();
         return;
     }
+    try { localStorage.setItem('sarasa_nickname', name); } catch(e) {}
     document.getElementById('step-name').classList.add('step-hidden');
     const stepAction = document.getElementById('step-action');
     stepAction.classList.remove('step-hidden');
     document.getElementById('greeting-display').innerText = `¡Hola, ${name}! 🧉`;
-    // Focus join-code for quick join
     setTimeout(() => document.getElementById('join-code').focus(), 50);
 }
 
@@ -167,6 +167,20 @@ function goBackToName() {
     document.getElementById('step-name').classList.remove('step-hidden');
     setTimeout(() => document.getElementById('player-name').focus(), 50);
 }
+
+// On load: restore saved nickname and skip to step-action
+(function restoreNickname() {
+    try {
+        const saved = localStorage.getItem('sarasa_nickname');
+        if (saved) {
+            document.getElementById('player-name').value = saved;
+            document.getElementById('step-name').classList.add('step-hidden');
+            document.getElementById('step-action').classList.remove('step-hidden');
+            document.getElementById('greeting-display').innerText = `¡Hola, ${saved}! 🧉`;
+            setTimeout(() => document.getElementById('join-code').focus(), 80);
+        }
+    } catch(e) {}
+})();
 
 // ── Ready Tracker ─────────────────────────────────────────────────────────────
 
@@ -470,7 +484,7 @@ function castVote(votedForAuthorId, clickedCard) {
     });
 
     document.getElementById('vote-wait-msg').style.display = 'block';
-    showToast('¡Voto enviado! 🗳️', 'success', 2000);
+    // No toast here — the visual feedback (highlighted card + wait msg) is sufficient
 
     const payload = { type: 'CMD_VOTE', authorId: votedForAuthorId, voterId: myId };
     if (isHost) handleCommandFromClient(payload);
@@ -541,6 +555,7 @@ function retractAnswers() {
 function joinGame() {
     myName = document.getElementById('player-name').value.trim() || '';
     if (!myName) { showToast('¡Falta el nombre! 😤'); return; }
+    try { localStorage.setItem('sarasa_nickname', myName); } catch(e) {}
     const code = document.getElementById('join-code').value.toUpperCase();
     if (!code) { showToast('Poné un código de sala'); return; }
 
@@ -579,6 +594,7 @@ function joinGame() {
 async function createGame() {
     myName = document.getElementById('player-name').value.trim() || '';
     if (!myName) { showToast('¡Falta el nombre! 😤'); return; }
+    try { localStorage.setItem('sarasa_nickname', myName); } catch(e) {}
 
     isHost = true;
     const code   = generateRoomCode();
