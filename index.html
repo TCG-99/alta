@@ -348,6 +348,78 @@
             border-color: transparent;
         }
 
+        /* ── Safe Answers ── */
+        .safe-answers-section {
+            margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            padding-top: 10px;
+        }
+        .safe-answers-label {
+            font-size: 0.72rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+        }
+        .safe-points-hint {
+            font-weight: 700;
+            color: #e67e22;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .safe-answers-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .safe-answer-chip {
+            background: rgba(230,126,34,0.12);
+            border: 1px solid rgba(230,126,34,0.35);
+            color: #e67e22;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 5px 11px;
+            border-radius: 20px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            box-shadow: none;
+            transition: background 0.2s, border-color 0.2s, transform 0.12s;
+            letter-spacing: 0;
+        }
+        .safe-answer-chip:hover:not(:disabled) {
+            background: rgba(230,126,34,0.25);
+            border-color: #e67e22;
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 0 3px 10px rgba(230,126,34,0.2);
+        }
+        .safe-answer-chip:active:not(:disabled) {
+            transform: translateY(0) scale(0.99);
+        }
+        .safe-answer-chip.safe-chip-active {
+            background: rgba(230,126,34,0.3);
+            border-color: #e67e22;
+            box-shadow: 0 0 12px rgba(230,126,34,0.3);
+        }
+        .safe-answer-chip:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .safe-flag-indicator {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #e67e22;
+            background: rgba(230,126,34,0.1);
+            border: 1px solid rgba(230,126,34,0.25);
+            border-radius: 8px;
+            padding: 6px 10px;
+            text-align: center;
+        }
+        .badge-safe { background: rgba(230,126,34,0.2); border: 1px solid #e67e22; color: #f0a060; }
+
         /* ── Ready Tracker ── */
         #ready-tracker {
             background: rgba(0,0,0,0.2);
