@@ -176,7 +176,7 @@ function goBackToName() {
             document.getElementById('player-name').value = saved;
             document.getElementById('step-name').classList.add('step-hidden');
             document.getElementById('step-action').classList.remove('step-hidden');
-            document.getElementById('greeting-display').innerText = `¡Hola, ${saved}! 🧉`;
+            document.getElementById('greeting-display').innerText = `¡Hola, ${saved}!`;
             setTimeout(() => document.getElementById('join-code').focus(), 80);
         }
     } catch(e) {}
