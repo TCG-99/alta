@@ -8,6 +8,7 @@ let myName = "";
 let myAssignments = [];
 let myAnswers = {};
 let myAnswersSubmitted = false;
+let mySafeAnswerUsed = {};   // key: promptId → true if player used a safe answer
 
 let serverState = {
     players: [],
@@ -309,6 +310,9 @@ function makeResultCard(res, isJinx) {
     const sarasaBadge = res.quiplash
         ? `<span class="badge badge-sarasa">🔥 ¡ALTA SARASA!</span>` : '';
 
+    const safeBadge = res.isSafe
+        ? `<span class="badge badge-safe">🛡️ Respuesta segura</span>` : '';
+
     card.innerHTML = `
         <div class="result-badges">
             <span class="badge badge-author">✍️ ${res.authorName}</span>
@@ -317,6 +321,7 @@ function makeResultCard(res, isJinx) {
                 : nobodyBadge}
             ${!isJinx ? `<span class="badge badge-points">+${res.pointsAdded} pts</span>` : ''}
             ${sarasaBadge}
+            ${safeBadge}
         </div>
         <div class="result-answer-text">"${res.text}"</div>
         ${voterLine}
@@ -350,6 +355,7 @@ function handleGameState(data) {
             myAssignments    = data.assignments;
             myAnswers        = {};
             myAnswersSubmitted = false;
+            mySafeAnswerUsed = {};
             currentPlayers   = data.players || currentPlayers;
 
             document.getElementById('answering-title').innerText =
@@ -361,9 +367,24 @@ function handleGameState(data) {
                 const card = document.createElement('div');
                 card.className = 'prompt-card';
                 card.id = `prompt-card-${q.id}`;
+
+                // Build safe answers section if available
+                let safeAnswersHTML = '';
+                if (q.safeAnswers && q.safeAnswers.length > 0) {
+                    const chips = q.safeAnswers.map((sa, i) =>
+                        `<button type="button" class="safe-answer-chip" data-qid="${q.id}" data-idx="${i}" onclick="useSafeAnswer(${q.id}, '${sa.replace(/'/g, "\\'")}', this)">${sa}</button>`
+                    ).join('');
+                    safeAnswersHTML = `
+                        <div class="safe-answers-section">
+                            <div class="safe-answers-label">🛡️ Respuestas seguras <span class="safe-points-hint">(vale la mitad de puntos)</span></div>
+                            <div class="safe-answers-chips" id="safe-chips-${q.id}">${chips}</div>
+                        </div>`;
+                }
+
                 card.innerHTML = `
                     <div class="prompt-text">${q.prompt}</div>
                     <input type="text" id="answer-${q.id}" placeholder="Tirá tu mejor chamuyo..." autocomplete="off" maxlength="80">
+                    ${safeAnswersHTML}
                 `;
                 promptsEl.appendChild(card);
 
@@ -372,6 +393,12 @@ function handleGameState(data) {
                 inp.addEventListener('input', () => {
                     if (inp.value.trim().length > 0) card.classList.add('answered');
                     else card.classList.remove('answered');
+                    // If user types manually after using a safe answer, clear the safe flag
+                    const safeFlag = document.getElementById(`safe-flag-${q.id}`);
+                    if (safeFlag) safeFlag.remove();
+                    mySafeAnswerUsed[q.id] = false;
+                    const chips = document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`);
+                    chips.forEach(c => c.classList.remove('safe-chip-active'));
                 });
             });
 
@@ -537,6 +564,36 @@ function castVote(votedForAuthorId, clickedCard) {
     else conn.send(payload);
 }
 
+// ── Safe Answer usage ─────────────────────────────────────────────────────────
+
+function useSafeAnswer(qId, text, chipEl) {
+    const input = document.getElementById(`answer-${qId}`);
+    if (!input || input.disabled) return;
+
+    // Fill the input
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+
+    // Mark safe flag
+    mySafeAnswerUsed[qId] = true;
+
+    // Highlight active chip, deactivate others
+    const chips = document.querySelectorAll(`#safe-chips-${qId} .safe-answer-chip`);
+    chips.forEach(c => c.classList.remove('safe-chip-active'));
+    chipEl.classList.add('safe-chip-active');
+
+    // Show indicator inside the card
+    let safeFlag = document.getElementById(`safe-flag-${qId}`);
+    if (!safeFlag) {
+        const card = document.getElementById(`prompt-card-${qId}`);
+        safeFlag = document.createElement('div');
+        safeFlag.id = `safe-flag-${qId}`;
+        safeFlag.className = 'safe-flag-indicator';
+        safeFlag.innerText = '🛡️ Usando respuesta segura — mitad de puntos si ganás';
+        card.appendChild(safeFlag);
+    }
+}
+
 // ── Answer submission ─────────────────────────────────────────────────────────
 
 function submitAnswers() {
@@ -556,13 +613,14 @@ function submitAnswers() {
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
         if (input) input.disabled = true;
+        document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`).forEach(c => c.disabled = true);
     });
 
     // Mark self as ready locally
     markPlayerReady(myId, currentPlayers);
     showToast('¡Sarasa enviada! Esperando a los demás... ✅', 'success', 2500);
 
-    const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: myAnswers, id: myId };
+    const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: myAnswers, safeAnswerUsed: mySafeAnswerUsed, id: myId };
     if (isHost) handleCommandFromClient(payload);
     else conn.send(payload);
 }
@@ -574,6 +632,7 @@ function retractAnswers() {
     }
     myAnswersSubmitted = false;
     myAnswers = {};
+    mySafeAnswerUsed = {};
 
     document.getElementById('btn-submit-answers').disabled     = false;
     document.getElementById('btn-submit-answers').innerText    = 'Enviar Sarasa 🧉';
@@ -583,6 +642,11 @@ function retractAnswers() {
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
         if (input) { input.disabled = false; }
+        document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`).forEach(c => c.disabled = false);
+        const safeFlag = document.getElementById(`safe-flag-${q.id}`);
+        if (safeFlag) safeFlag.remove();
+        const chips = document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`);
+        chips.forEach(c => c.classList.remove('safe-chip-active'));
         const card = document.getElementById(`prompt-card-${q.id}`);
         if (card) card.classList.remove('answered');
     });
@@ -729,7 +793,8 @@ function handleCommandFromClient(data) {
         for (const [qId, text] of Object.entries(data.answers)) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
             if (!serverState.answers[qId].some(a => a.authorId === pId)) {
-                serverState.answers[qId].push({ authorId: pId, text });
+                const isSafe = data.safeAnswerUsed && data.safeAnswerUsed[qId] ? true : false;
+                serverState.answers[qId].push({ authorId: pId, text, isSafe });
             }
         }
 
@@ -932,11 +997,13 @@ function processVotingResults() {
                 pointsAdded += 500 * roundMultiplier;
                 quiplash = true;
             }
+            // Safe answer: half points
+            if (ans.isSafe) pointsAdded = Math.floor(pointsAdded / 2);
         }
 
         if (author && !isJinx && ans.authorId !== 'DUMMY') author.score += pointsAdded;
 
-        return { authorName, text: ans.text, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
+        return { authorName, text: ans.text, isSafe: ans.isSafe || false, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
     });
 
     broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, results: resultsData });
