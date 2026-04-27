@@ -34,6 +34,52 @@ const fallbackQuestions = [
 ];
 let gameQuestions = [...fallbackQuestions];
 
+// ── Prompt history (cross-game deduplication) ─────────────────────────────────
+// Stored in localStorage as a JSON array of prompt IDs.
+// Only the host uses this — clients don't pick prompts.
+
+const HISTORY_KEY = 'sarasa_seen_prompts';
+
+function historyLoad() {
+    try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch(e) { return new Set(); }
+}
+
+function historySave(seenSet) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify([...seenSet])); } catch(e) {}
+}
+
+function historyMark(prompts) {
+    const seen = historyLoad();
+    prompts.forEach(p => seen.add(p.id));
+    historySave(seen);
+}
+
+function historyReset() {
+    try { localStorage.removeItem(HISTORY_KEY); } catch(e) {}
+}
+
+/**
+ * Returns all questions shuffled so that unseen ones come first.
+ * If every prompt has been seen, resets the history and returns a fresh shuffle.
+ */
+function buildShuffledDeck(questions) {
+    const seen = historyLoad();
+    const unseen = questions.filter(q => !seen.has(q.id)).sort(() => 0.5 - Math.random());
+    const usedUp = questions.filter(q =>  seen.has(q.id)).sort(() => 0.5 - Math.random());
+
+    if (unseen.length === 0) {
+        // All prompts exhausted — reset and start fresh
+        historyReset();
+        showToast('¡Se acabaron las preguntas nuevas! Reseteando el historial 🔄', '', 3500);
+        return questions.sort(() => 0.5 - Math.random());
+    }
+
+    return [...unseen, ...usedUp];
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function showScreen(screenId) {
@@ -609,7 +655,8 @@ async function createGame() {
         if (res.ok) gameQuestions = await res.json();
     } catch (e) { console.warn('Usando preguntas de respaldo.'); }
 
-    serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+    // Build the in-game deck: unseen prompts first, seen ones as fallback
+    serverState.unusedPrompts = buildShuffledDeck(gameQuestions);
     peer = new Peer(peerId);
 
     peer.on('error', err => {
@@ -746,8 +793,10 @@ function startRound() {
 
     if (serverState.currentRound <= 2) {
         if (serverState.unusedPrompts.length < N)
-            serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+            serverState.unusedPrompts = buildShuffledDeck(gameQuestions);
         serverState.prompts = serverState.unusedPrompts.splice(0, N);
+        // Mark these prompts as seen across games
+        historyMark(serverState.prompts);
         for (let i = 0; i < N; i++) {
             players[i].id && (serverState.assignments[players[i].id] = [
                 serverState.prompts[i],
@@ -756,9 +805,11 @@ function startRound() {
         }
     } else {
         if (serverState.unusedPrompts.length < 1)
-            serverState.unusedPrompts = [...gameQuestions].sort(() => 0.5 - Math.random());
+            serverState.unusedPrompts = buildShuffledDeck(gameQuestions);
         const fp = serverState.unusedPrompts.splice(0, 1)[0];
         serverState.prompts = [fp];
+        // Mark final-round prompt as seen
+        historyMark([fp]);
         players.forEach(p => serverState.assignments[p.id] = [fp]);
     }
 
