@@ -1,386 +1,463 @@
 [
 {
 "id": 1,
-"prompt": "El peor sabor posible para el relleno de una empanada."
+"prompt": "El peor sabor posible para el relleno de una empanada.",
+"safeAnswers": ["Dulce de leche", "Ricota con banana", "Mermelada de frutilla", "Chocolate y menta", "Manzana y canela"]
 },
 
 {
 "id": 2,
-"prompt": "Una excusa inchequeable pero efectiva para no ir a un asado el domingo."
+"prompt": "Una excusa inchequeable pero efectiva para no ir a un asado el domingo.",
+"safeAnswers": ["Estoy de duelo por mi tortuga", "Me operan de urgencia la rodilla", "Tengo una infección en el ojo que es contagiosa", "Mi psicóloga me dijo que necesito tiempo solo", "Se inundó el departamento"]
 },
 
 {
 "id": 3,
-"prompt": "Si el mate tuviera un manual de instrucciones, la regla #1 sería..."
+"prompt": "Si el mate tuviera un manual de instrucciones, la regla #1 sería...",
+"safeAnswers": ["No agradecer jamás", "Nunca mover la bombilla", "El cebador manda siempre", "No quejarse de la temperatura", "Tomar aunque no tengas ganas"]
 },
 
 {
 "id": 4,
-"prompt": "Si tuviéramos que cambiarle el nombre al país por algo más honesto, sería..."
+"prompt": "Si tuviéramos que cambiarle el nombre al país por algo más honesto, sería...",
+"safeAnswers": ["República del Fiado", "United States of Caos", "La Grieta", "Nación del Mientras Tanto", "República de los Parches"]
 },
 
 {
 "id": 5,
-"prompt": "El truco definitivo para no dormirse cuando tenés que pasar toda la noche despierto."
+"prompt": "El truco definitivo para no dormirse cuando tenés que pasar toda la noche despierto.",
+"safeAnswers": ["Llamar a un ex", "Leer el contrato del celular completo", "Ver reels de gatitos hasta el amanecer", "Tomar mate amargo sin parar", "Ponerse papas fritas en los zapatos"]
 },
 
 {
 "id": 6,
-"prompt": "Una nueva regla del Estanciero: si caés en la Aduana, tenés que _____"
+"prompt": "Una nueva regla del Estanciero: si caés en la Aduana, tenés que _____",
+"safeAnswers": ["Pagar el doble de lo que tenés", "Ceder una propiedad al banco", "Quedarte un turno sin jugar", "Perder todas tus tarjetas de suerte", "Ir directo a la cárcel sin pasar por el inicio"]
 },
 
 {
 "id": 7,
-"prompt": "El nombre de un programa de chimentos conducido por animales."
+"prompt": "El nombre de un programa de chimentos conducido por animales.",
+"safeAnswers": ["El cotorreo de las cotorras", "Chismes del gallinero", "La lengua del loro", "Lo que ladra la calle", "Sin pelos en la lengua (de gato)"]
 },
 
 {
 "id": 8,
-"prompt": "¿Cuál es el peor ruido que podés escuchar al sacudir un regalo de Navidad?"
+"prompt": "¿Cuál es el peor ruido que podés escuchar al sacudir un regalo de Navidad?",
+"safeAnswers": ["Nada. Silencio absoluto.", "Un splash de líquido", "Algo que se rompe en mil pedazos", "Un maullido", "El sonido de papeles de trabajo"]
 },
 
 {
 "id": 9,
-"prompt": "Un momento en el que NO deberías estar usando ropa blanca."
+"prompt": "Un momento en el que NO deberías estar usando ropa blanca.",
+"safeAnswers": ["Asando chorizos", "En el cumpleaños de un nene de tres años", "Yendo al dentista", "Comiendo milanesa con salsa", "En el barro a los cinco minutos"]
 },
 
 {
 "id": 10,
-"prompt": "La señal definitiva de que tu perro es medio boludo."
+"prompt": "La señal definitiva de que tu perro es medio boludo.",
+"safeAnswers": ["Le ladra al espejo todos los días", "Se olvida adonde escondió los huesos", "Tiene miedo del secador de pelo", "Se cae del sillón durmiendo", "Persigue su propia cola y se marea"]
 },
 
 {
 "id": 11,
-"prompt": "Algo muy raro que un árbitro de fútbol podría susurrarle a un jugador antes de un tiro libre."
+"prompt": "Algo muy raro que un árbitro de fútbol podría susurrarle a un jugador antes de un tiro libre.",
+"safeAnswers": ["'Te vi en el súper ayer, no me saludaste'", "'Mi señora te tiene de favorito'", "'Si lo errás, igual te banco'", "'Yo en tu lugar patearía a la derecha'", "'¿Podés firmarme algo después?'"]
 },
 
 {
 "id": 12,
-"prompt": "Hagas lo que hagas, NUNCA le pongas chimichurri a..."
+"prompt": "Hagas lo que hagas, NUNCA le pongas chimichurri a...",
+"safeAnswers": ["El helado de vainilla", "El café con leche", "Los alfajores de maicena", "La torta de cumpleaños", "El postre vigilante"]
 },
 
 {
 "id": 13,
-"prompt": "La próxima película de Pixar tratará sobre un/a ________ parlante."
+"prompt": "La próxima película de Pixar tratará sobre un/a ________ parlante.",
+"safeAnswers": ["Suela de zapatilla vieja", "Cucaracha de cocina", "Bolsa de nylon en el viento", "Humedad de pared medianera", "Bidet con personalidad"]
 },
 
 {
 "id": 14,
-"prompt": "Lo más vergonzoso que te podría pasar en tu fiesta de egresados."
+"prompt": "Lo más vergonzoso que te podría pasar en tu fiesta de egresados.",
+"safeAnswers": ["Tropezar en el escenario al recibir el diploma", "Que tu crush vaya con otra persona", "Que el fotógrafo te saque siempre con los ojos cerrados", "Quedarte dormido en la mesa", "Que te llamen por el apodo del colegio en el micrófono"]
 },
 
 {
 "id": 15,
-"prompt": "Un nombre apropiado para un bar que no tiene baño."
+"prompt": "Un nombre apropiado para un bar que no tiene baño.",
+"safeAnswers": ["El Aguante", "La Vejiga de Acero", "Sin Escalas", "El Rápido y el Furioso", "Resistencia Total"]
 },
 
 {
 "id": 16,
-"prompt": "El peor uso de la ciencia sería clonar a _____"
+"prompt": "El peor uso de la ciencia sería clonar a _____",
+"safeAnswers": ["Milei", "Tu jefe", "El vecino que hace ruido a las 3am", "El tipo que no cierra la boca en el cine", "El que no respeta la fila"]
 },
 
 {
 "id": 17,
-"prompt": "La única ventaja real de tener la espalda llena de pelos."
+"prompt": "La única ventaja real de tener la espalda llena de pelos.",
+"safeAnswers": ["Nunca usás protector solar atrás", "Calefacción natural en invierno", "Intimidás a los osos", "Podés guardar cosas como un marsupial", "Nunca necesitás almohada en la playa"]
 },
 
 {
 "id": 18,
-"prompt": "¿Qué estarán pensando los maniquíes de la vidriera?"
+"prompt": "¿Qué estarán pensando los maniquíes de la vidriera?",
+"safeAnswers": ["'Otro día mirando y sin comprar nada'", "'Me cambiaron de ropa con frío'", "'Por favor que no vuelva ese nene a tocarme'", "'Ojalá llueva para que no venga nadie'", "'Llevo diez años parado, me duelen los pies'"]
 },
 
 {
 "id": 19,
-"prompt": "Lo que realmente motiva a los políticos a seguir haciendo campaña."
+"prompt": "Lo que realmente motiva a los políticos a seguir haciendo campaña.",
+"safeAnswers": ["El catering gratis", "Los viáticos", "No tener que rendir examen nunca más", "Salir en la tele", "La foto con el intendente"]
 },
 
 {
 "id": 20,
-"prompt": "¿Qué palabra nunca debería ir acompañada de un signo de exclamación?"
+"prompt": "¿Qué palabra nunca debería ir acompañada de un signo de exclamación?",
+"safeAnswers": ["Impuesto", "Deuda", "Lunes", "Colonoscopía", "Quilombo"]
 },
 
 {
 "id": 21,
-"prompt": "El nombre de la película de acción más aburrida de la historia."
+"prompt": "El nombre de la película de acción más aburrida de la historia.",
+"safeAnswers": ["Rápido y Furioso: La Mudanza", "El Agente que Manejaba con Cuidado", "Misión Imposible: Llenar el Formulario", "Die Hard: Esperando el Turno en el Banco", "007 contra el Tráfico del Lunes"]
 },
 
 {
 "id": 22,
-"prompt": "El nombre que le pone un gaucho muy vago a su caballo."
+"prompt": "El nombre que le pone un gaucho muy vago a su caballo.",
+"safeAnswers": ["Mañana", "Ni Ahí", "Déjame Estar", "Después Veo", "El Descansado"]
 },
 
 {
 "id": 23,
-"prompt": "Las elecciones serían mejores si en vez de debatir, los candidatos tuvieran que _____"
+"prompt": "Las elecciones serían mejores si en vez de debatir, los candidatos tuvieran que _____",
+"safeAnswers": ["Jugar al truco", "Preparar un asado juntos", "Subir al palo enjabonado", "Hacer una quermés", "Competir en el Pasapalabra"]
 },
 
 {
 "id": 24,
-"prompt": "El objeto más inútil para llevar a una isla desierta."
+"prompt": "El objeto más inútil para llevar a una isla desierta.",
+"safeAnswers": ["Un fax", "Un paraguas para el sol", "Ropa de abrigo", "La guía telefónica", "Un traje de gala"]
 },
 
 {
 "id": 25,
-"prompt": "Si pudieras heredar una habilidad inútil de tus viejos, sería _____"
+"prompt": "Si pudieras heredar una habilidad inútil de tus viejos, sería _____",
+"safeAnswers": ["Guardar bolsas de nylon dentro de bolsas de nylon", "Llegar dos horas antes a todos lados", "Saber el precio de todo en el supermercado de memoria", "Resolver problemas apagando y prendiendo", "Hacer comentarios sobre el tiempo en cualquier conversación"]
 },
 
 {
 "id": 26,
-"prompt": "El nombre de una banda de rock formada por jubilados."
+"prompt": "El nombre de una banda de rock formada por jubilados.",
+"safeAnswers": ["Los Artrósicos", "Canas al Aire", "La Jubilada Rebelde", "Rolling Huesos", "Metallica del Bingo"]
 },
 
 {
 "id": 27,
-"prompt": "Lo peor que podés gritar desde el probador."
+"prompt": "Lo peor que podés gritar desde el probador.",
+"safeAnswers": ["'¡No entro ni de casualidad!'", "'¡Necesito el XL, el L no me cierra!'", "'¡Me quedé pegado con el cierre!'", "'¿Tenés algo sin espejo adentro?'", "'¡Me está mirando alguien por abajo!'"]
 },
 
 {
 "id": 28,
-"prompt": "Algo que no querrías escuchar de tu cirujano justo antes de que te anestesien."
+"prompt": "Algo que no querrías escuchar de tu cirujano justo antes de que te anestesien.",
+"safeAnswers": ["'Bueno, ¿empezamos?'", "'¿Alguien vio mis anteojos?'", "'Primera vez que hago esto en vivo'", "'Che, ¿cuál era el paciente?'", "'No se preocupen, yo tampoco dormí'"]
 },
 
 {
 "id": 29,
-"prompt": "Un ingrediente secreto que arruinaría cualquier pizza."
+"prompt": "Un ingrediente secreto que arruinaría cualquier pizza.",
+"safeAnswers": ["Chicle de menta", "Pasta de dientes", "Mermelada de naranja amarga", "Gatorade azul", "Colonia de hombre"]
 },
 
 {
 "id": 30,
-"prompt": "El nombre de un gimnasio para gente que odia hacer gimnasia."
+"prompt": "El nombre de un gimnasio para gente que odia hacer gimnasia.",
+"safeAnswers": ["El Mínimo Esfuerzo", "Igual Engordo", "La Excusa Perfecta", "Hacemos Lo Que Podemos", "Fit-ish"]
 },
 
 {
 "id": 31,
-"prompt": "Sinceramente, nunca se puede tener demasiado/a..."
+"prompt": "Sinceramente, nunca se puede tener demasiado/a...",
+"safeAnswers": ["Dulce de leche", "Tiempo libre", "Plata", "Mozzarella en la pizza", "Días feriados"]
 },
 
 {
 "id": 32,
-"prompt": "Te das cuenta de que un restaurante es malo cuando el mozo te dice..."
+"prompt": "Te das cuenta de que un restaurante es malo cuando el mozo te dice...",
+"safeAnswers": ["'No hay menú del día'", "'El cocinero llegó tarde'", "'Eso que pidió no hay, ¿qué más quiere?'", "'La carta es solo orientativa'", "'Fíjese en el delivery de al lado'"]
 },
 
 {
 "id": 33,
-"prompt": "Los arqueólogos no quieren admitir que descubrieron pinturas rupestres de..."
+"prompt": "Los arqueólogos no quieren admitir que descubrieron pinturas rupestres de...",
+"safeAnswers": ["Una queja al vecino de la cueva de arriba", "Un grupo de WhatsApp prehistórico", "Un asado con fuego y exceso de leña", "Una reunion de padres en el colegio de los mamuts", "Un partido de fútbol con resultado 0 a 0"]
 },
 
 {
 "id": 34,
-"prompt": "Si tus juguetes de la infancia cobraran vida, probablemente dirían..."
+"prompt": "Si tus juguetes de la infancia cobraran vida, probablemente dirían...",
+"safeAnswers": ["'¿Sabés cuántos años que no me sacás de la caja?'", "'Me rompiste el brazo en 1998 y nunca me pediste perdón'", "'Te vi tirarme al perro'", "'¿Por qué a Fulano le compraban más juguetes?'", "'Nos vendiste en el garage sale por dos pesos'"]
 },
 
 {
 "id": 35,
-"prompt": "Sabés que es una buena fiesta cuando alguien aparece con..."
+"prompt": "Sabés que es una buena fiesta cuando alguien aparece con...",
+"safeAnswers": ["Más bebida de la que fue a buscar", "Una Bluetooth speaker nueva", "El ex que nadie esperaba", "Empanadas de más", "El único que sabe bailar cumbia"]
 },
 
 {
 "id": 36,
-"prompt": "Un nuevo y sorprendente uso para el kale."
+"prompt": "Un nuevo y sorprendente uso para el kale.",
+"safeAnswers": ["Aislante térmico para ventanas", "Peluca de emergencia", "Relleno de almohada vegana", "Plato decorativo para el gato", "Alternativa al estropajo"]
 },
 
 {
 "id": 37,
-"prompt": "No lo vas a creer, pero los chicos ahora coleccionan figuritas de..."
+"prompt": "No lo vas a creer, pero los chicos ahora coleccionan figuritas de...",
+"safeAnswers": ["Ministros de economía fracasados", "Routers de distintas marcas", "Recibos de servicios públicos", "Conductores del 12", "Formularios del ANSES"]
 },
 
 {
 "id": 38,
-"prompt": "¿Qué le gana a la piedra, al papel Y a la tijera?"
+"prompt": "¿Qué le gana a la piedra, al papel Y a la tijera?",
+"safeAnswers": ["Una buena excusa", "El que no quiso jugar", "El que hace trampa", "La inflación", "El que dijo 'dos de tres'"]
 },
 
 {
 "id": 39,
-"prompt": "Con la luna llena, algunas personas se transforman en..."
+"prompt": "Con la luna llena, algunas personas se transforman en...",
+"safeAnswers": ["Comentadores de Facebook", "Gente que toca bocina sin motivo", "Conductores del carril izquierdo", "Vecinos con taladro", "Personas que llaman por teléfono en lugar de mandar mensajes"]
 },
 
 {
 "id": 40,
-"prompt": "Un eslogan rechazado para una marca de leche."
+"prompt": "Un eslogan rechazado para una marca de leche.",
+"safeAnswers": ["'Sale de la vaca, ¿qué más querés?'", "'Con gas o sin gas, es leche'", "'La tomamos nosotros primero'", "'Vencida por dentro, entera por fuera'", "'Más o menos fresca'"]
 },
 
 {
 "id": 41,
-"prompt": "Una señal clara de que estás atrapado en una pesadilla horrible."
+"prompt": "Una señal clara de que estás atrapado en una pesadilla horrible.",
+"safeAnswers": ["Tenés que rendir un final que nunca estudiaste", "Llegás tarde al trabajo y no sabés dónde queda", "Todos te hablan en un idioma que no entendés", "Tu ex aparece y todo el mundo es amigo de tu ex", "Tenés que hablar en público en ropa interior"]
 },
 
 {
 "id": 42,
-"prompt": "Un comentario que JAMÁS se hizo en la historia de internet."
+"prompt": "Un comentario que JAMÁS se hizo en la historia de internet.",
+"safeAnswers": ["'Qué buen punto, tenés razón'", "'Me equivoqué, te pido disculpas'", "'Muy bien argumentado, cambié de opinión'", "'No tengo nada que agregar, perfecto'", "'Gracias por compartir, me sirvió mucho'"]
 },
 
 {
 "id": 43,
-"prompt": "El juguete menos popular de este año: 'El muñeco de...'"
+"prompt": "El juguete menos popular de este año: 'El muñeco de...'",
+"safeAnswers": ["Auditor de la AFIP", "Dentista con torno", "Politico con maletín vacío", "Plomero que cobra a cualquier hora", "Contador que explica el monotributo"]
 },
 
 {
 "id": 44,
-"prompt": "Reseña de hotel de 1 estrella: 'Cama dura, sin toallas y...'"
+"prompt": "Reseña de hotel de 1 estrella: 'Cama dura, sin toallas y...'",
+"safeAnswers": ["el desayuno era un sueño también'", "la 'vista al mar' era una foto pegada en la ventana'", "el agua caliente venía los miércoles'", "el portero silbaba cumbia desde las 7am'", "el minibar tenía solo un chicle mordido'"]
 },
 
 {
 "id": 45,
-"prompt": "En el casino te echan si te acercás a la mesa de ruleta y gritás..."
+"prompt": "En el casino te echan si te acercás a la mesa de ruleta y gritás...",
+"safeAnswers": ["'¡Todo al rojo, que Dios provea!'", "'¡Vamos que recupero lo del alquiler!'", "'¡Me lo dijo el horóscopo!'", "'¡Esta vez sí, lo sé en el alma!'", "'¡Pongan todo, vine con el sueldo!'"]
 },
 
 {
 "id": 46,
-"prompt": "'Un buen hombre es difícil de...'"
+"prompt": "'Un buen hombre es difícil de...'",
+"safeAnswers": ["encontrar, más en Tinder", "convencer de ir al médico", "sacar del partido por la tele", "despertar un sábado a la mañana", "hacer que doble la ropa"]
 },
 
 {
 "id": 47,
-"prompt": "Un nombre terrible para un modelo de auto que se maneja solo."
+"prompt": "Un nombre terrible para un modelo de auto que se maneja solo.",
+"safeAnswers": ["El Pibe", "Vos Tranquilo", "Confía en Mí", "Sin Frenos", "El Que Lleva"]
 },
 
 {
 "id": 48,
-"prompt": "Sabés que la cosa viene mal cuando tu mamá te dice: 'No estoy enojada, estoy...'"
+"prompt": "Sabés que la cosa viene mal cuando tu mamá te dice: 'No estoy enojada, estoy...'",
+"safeAnswers": ["desilusionada", "evaluando opciones", "tomando distancia", "revisando el testamento", "sacando cuentas"]
 },
 
 {
 "id": 49,
-"prompt": "Lo peor que podés gritar desde el probador de una casa de ropa."
+"prompt": "Lo peor que podés gritar desde el probador de una casa de ropa.",
+"safeAnswers": ["'¡¿Esto es un L o se encogió?!'", "'¡Necesito el XXL y solo tengo orgullo!'", "'¡Ayuda, no puedo salir del pantalón!'", "'¡¿Quién diseñó esto, un sádico?!'", "'¡Traiganme el espejo mentiroso, por favor!'"]
 },
 
 {
 "id": 50,
-"prompt": "Algo impactante que descubrir que tus hijos construyeron con LEGO."
+"prompt": "Algo impactante que descubrir que tus hijos construyeron con LEGO.",
+"safeAnswers": ["Una réplica funcional del Congreso Nacional", "Un detector de mentiras casero", "El plan de escape de la casa", "Una catapulta para el gato", "Una trampa para los padres que roncan"]
 },
 
 {
 "id": 51,
-"prompt": "Una frase terrible para rematar un truco de magia."
+"prompt": "Una frase terrible para rematar un truco de magia.",
+"safeAnswers": ["'Bueno, más o menos así era'", "'Esto me salió en casa, juro'", "'¿Alguien vio adónde fue?'", "'Lo mío es la música, en realidad'", "'Devuélvanme el conejo, por favor'"]
 },
 
 {
 "id": 52,
-"prompt": "Cuando muera, quiero estar rodeado de mi familia y ____."
+"prompt": "Cuando muera, quiero estar rodeado de mi familia y ____.",
+"safeAnswers": ["El control remoto", "Una pizza de muzza", "Silencio por una vez", "El partido en la tele", "Mi contraseña del Wi-Fi"]
 },
 
 {
 "id": 53,
-"prompt": "Si pudiéramos apagar la gravedad por una hora, ____ sería mucho más interesante."
+"prompt": "Si pudiéramos apagar la gravedad por una hora, ____ sería mucho más interesante.",
+"safeAnswers": ["El colectivo 60", "El asado del domingo", "La fila del banco", "La reunión de consorcio", "El viaje en subte"]
 },
 
 {
 "id": 54,
-"prompt": "El mueble más práctico es un sillón que se convierte en ____."
+"prompt": "El mueble más práctico es un sillón que se convierte en ____.",
+"safeAnswers": ["Heladera portátil", "Refugio fiscal", "Cama para el que se quedó sin excusa", "Ataúd de emergencia", "Local gastronómico"]
 },
 
 {
 "id": 55,
-"prompt": "____ es la principal causa de la piel de gallina, probablemente."
+"prompt": "____ es la principal causa de la piel de gallina, probablemente.",
+"safeAnswers": ["Escuchar el himno en un mundial", "El primer mate del día en invierno", "Cuando tu vieja te dice tu nombre completo", "La factura de luz en verano", "La primera cuota del crédito hipotecario"]
 },
 
 {
 "id": 56,
-"prompt": "Sabías que el accidente involucraba un auto de payaso porque la calle estaba cubierta de ____."
+"prompt": "Sabías que el accidente involucraba un auto de payaso porque la calle estaba cubierta de ____.",
+"safeAnswers": ["Naricitas rojas", "Confetti mojado", "Zapatos enormes", "Pelucas de colores", "Bocinas de goma"]
 },
 
 {
 "id": 57,
-"prompt": "El nombre de un crucero que haría dudar antes de subirte."
+"prompt": "El nombre de un crucero que haría dudar antes de subirte.",
+"safeAnswers": ["MS Espero que Flote", "El No Garantizamos Nada", "Crucero Última Oportunidad", "SS Vaya y Venga", "El Que Dios Quiera"]
 },
 
 {
 "id": 58,
-"prompt": "¡Nadie reserva esa habitación de hotel! No desde que ____."
+"prompt": "¡Nadie reserva esa habitación de hotel! No desde que ____.",
+"safeAnswers": ["apareció el fantasma del turista quejoso", "el minibar cobró vida propia", "la almohada habló a las 3am", "el espejo empezó a dar devoluciones", "el televisor prendía solo con Discovery"]
 },
 
 {
 "id": 59,
-"prompt": ""La venganza es un plato que se sirve ____"."
+"prompt": "La venganza es un plato que se sirve ____.",
+"safeAnswers": ["frío, como la ensalada rusa que me dieron en el velorio", "tarde, como las disculpas de un político", "con IVA incluido", "a domicilio, sin propina", "en cuotas sin interés"]
 },
 
 {
 "id": 60,
-"prompt": "Si querés que un barman te odie, pedile ____."
+"prompt": "Si querés que un barman te odie, pedile ____.",
+"safeAnswers": ["Un Fernet con Sprite", "Que ponga el volumen más bajo", "Un vino sin sulfitos para llevar", "Un submarino pero sin submarino", "Que cambie la música porque 'no me gusta'"]
 },
 
 {
 "id": 61,
-"prompt": "Mi Lady, permítame presentarle al caballero más asqueroso que tenemos: Sir ____."
+"prompt": "Mi Lady, permítame presentarle al caballero más asqueroso que tenemos: Sir ____.",
+"safeAnswers": ["Calcetín de Tres Semanas", "Heladera Sin Descongelar", "Repasador Con Historia", "Mate de Jueves", "Medias Con Chanclas"]
 },
 
 {
 "id": 62,
-"prompt": "El próximo gran documental será sobre el lado oscuro de la industria de ____."
+"prompt": "El próximo gran documental será sobre el lado oscuro de la industria de ____.",
+"safeAnswers": ["Las medialunas de manteca", "El dulce de leche artesanal", "Los kioscos de la estación", "Las empanadas de delivery", "Los vigilantes del supermercado"]
 },
 
 {
 "id": 63,
-"prompt": "Siendo honesto con vos mismo, nunca vas a ser lo suficientemente valiente para ____."
+"prompt": "Siendo honesto con vos mismo, nunca vas a ser lo suficientemente valiente para ____.",
+"safeAnswers": ["Decirle al vecino que baje la música", "Devolver el llamado del banco", "Pedir la pizza sin que te cobren el envío", "Reclamar el vuelto del kiosco", "Hablar en el micrófono en una boda"]
 },
 
 {
 "id": 64,
-"prompt": "Lo peor que podrías descubrir que tu hijo de cinco años está dibujando."
+"prompt": "Lo peor que podrías descubrir que tu hijo de cinco años está dibujando.",
+"safeAnswers": ["Tu tarjeta de crédito", "El mapa de la casa con todas las salidas", "A los vecinos desde la ventana", "El plan de escape del jardín", "Una lista de exigencias para Papá Noel con abogado"]
 },
 
 {
 "id": 65,
-"prompt": "Un dato sobre vos que impresionaría a un nene de cuatro años."
+"prompt": "Un dato sobre vos que impresionaría a un nene de cuatro años.",
+"safeAnswers": ["Que puedo hacer un huevo frito", "Que sé manejar", "Que una vez vi un dinosaurio de verdad (en un museo)", "Que tengo 10 dólares", "Que soy amigo del kiosquero"]
 },
 
 {
 "id": 66,
-"prompt": "¿¡Un soborno!? ¿Es un soborno darle ____ a un juez federal?"
+"prompt": "¿¡Un soborno!? ¿Es un soborno darle ____ a un juez federal?",
+"safeAnswers": ["Facturas de manteca", "Medialunas de grasa", "Una caja de alfajores Havanna", "Un bono de nafta", "Empanadas de jamón y queso"]
 },
 
 {
 "id": 67,
-"prompt": "¡Dato poco conocido! A Da Vinci le gustaba esconder ____ en sus cuadros."
+"prompt": "¡Dato poco conocido! A Da Vinci le gustaba esconder ____ en sus cuadros.",
+"safeAnswers": ["La lista del súper", "Stickers de dinosaurios", "El horario del colectivo", "Cupones de descuento vencidos", "El número de teléfono del fontanero"]
 },
 
 {
 "id": 68,
-"prompt": "Antes de la miel, Winnie the Pooh tenía una adicción terrible a ____."
+"prompt": "Antes de la miel, Winnie the Pooh tenía una adicción terrible a ____.",
+"safeAnswers": ["El dulce de leche importado", "Las medialunas de grasa", "El Fernet a las 11am", "El mate amargo sin lavado", "Las masitas de té del jardín de infantes"]
 },
 
 {
 "id": 69,
-"prompt": "La única cosa que nunca deberías poner en una heladera compartida."
+"prompt": "La única cosa que nunca deberías poner en una heladera compartida.",
+"safeAnswers": ["Un tupper sin nombre con olor raro", "El sushi del martes de la semana pasada", "Algo que 'lo prueba uno solo'", "El mate con yerba de hace tres semanas", "El postre que 'era de todos'"]
 },
 
 {
 "id": 70,
-"prompt": "Te das cuenta de que la cata de vinos es barata cuando el chardonnay tiene notas de ____."
+"prompt": "Te das cuenta de que la cata de vinos es barata cuando el chardonnay tiene notas de ____.",
+"safeAnswers": ["Tetrabrick de cartón", "Limpiador multiuso con olor a pino", "Nafta súper sin plomo", "Goma de borrar nueva", "Sahumerio de lavanda del kiosco"]
 },
 
 {
 "id": 71,
-"prompt": "Nada puede detener a Terminator. Bueno, nada excepto ____."
+"prompt": "Nada puede detener a Terminator. Bueno, nada excepto ____.",
+"safeAnswers": ["Una fila del ANSES", "El Wi-Fi del trabajo", "Actualizar Windows a las 8:59am", "La burocracia del Registro Civil", "Elegir entre 47 salsas en el delivery"]
 },
 
 {
 "id": 72,
-"prompt": "El parque de diversiones fue un fracaso. ¡¿Ahora qué hacemos con todos estos dinosaurios clonados?!"
+"prompt": "El parque de diversiones fue un fracaso. ¡¿Ahora qué hacemos con todos estos dinosaurios clonados?!",
+"safeAnswers": ["Que sean los de Seguridad", "Los mandamos a la obra de construcción de al lado", "Uber Eats, modalidad dino", "Los ponemos en el congreso, que ya hay gente así", "Los alquilamos para cumpleaños de 15"]
 },
 
 {
 "id": 73,
-"prompt": "Lo peor que podés pisar estando descalzo."
+"prompt": "Lo peor que podés pisar estando descalzo.",
+"safeAnswers": ["Un LEGO a las 3am", "La ofrenda que dejó el gato", "Un chicle caliente en verano", "El charco misterioso del baño", "Una uva del año nuevo que nadie limpió"]
 },
 
 {
 "id": 74,
-"prompt": "En el cielo vas a estar rodeado de amigos, familia y, por alguna razón, ____."
+"prompt": "En el cielo vas a estar rodeado de amigos, familia y, por alguna razón, ____.",
+"safeAnswers": ["El vecino que hacía ruido", "Tu primer jefe", "El tipo de la fila que siempre te chocaba", "El profe de matemáticas del secundario", "El barman que nunca te entendió el pedido"]
 },
 
 {
 "id": 75,
-"prompt": "Plan para robar un banco: Paso 1. Acercarse al cajero. Paso 2. ____."
+"prompt": "Plan para robar un banco: Paso 1. Acercarse al cajero. Paso 2. ____.",
+"safeAnswers": ["Sacar número y esperar", "Preguntar si hay cuotas sin interés", "Pedir hablar con el gerente", "Completar el formulario en seis copias", "Volver mañana que hoy cerraron temprano"]
 },
 
 {
 "id": 76,
-"prompt": "El truco más grande que el Diablo jamás realizó fue ____."
+"prompt": "El truco más grande que el Diablo jamás realizó fue ____.",
+"safeAnswers": ["Convencer a alguien de que el lunes es buen día para empezar la dieta", "Inventar el servicio al cliente automatizado", "Que la cuota del gimnasio se debite igual aunque no vayas", "Que el Wi-Fi se corte exactamente cuando vas a pagar", "Hacer creer que los formularios son necesarios"]
 },
 
 {
 "id": 77,
-"prompt": "Una señal clara de que tu compañero de trabajo es un robot."
+"prompt": "Una señal clara de que tu compañero de trabajo es un robot.",
+"safeAnswers": ["Nunca come en el office", "Siempre llega exactamente a horario", "Dice 'procesando' antes de responder un mail", "Tiene cara de pantalla apagada los lunes", "Nunca queja del café pero tampoco lo toma"]
 }
 ]
