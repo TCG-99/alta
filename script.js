@@ -1,26 +1,27 @@
 let peer = null;
-let conn = null; 
-let hostConnections = []; 
+let conn = null;
+let hostConnections = [];
 let isHost = false;
 
 let myId = "";
 let myName = "";
-let myAssignments = []; 
-let myAnswers = {}; 
+let myAssignments = [];
+let myAnswers = {};
 let myAnswersSubmitted = false;
 
 let serverState = {
-    players: [], 
-    unusedPrompts: [], 
-    prompts: [], 
-    assignments: {}, 
-    answers: {}, 
-    votes: {}, 
+    players: [],
+    unusedPrompts: [],
+    prompts: [],
+    assignments: {},
+    answers: {},
+    votes: {},
     currentVoteIndex: 0,
     currentRound: 1,
-    maxRounds: 3, 
+    maxRounds: 3,
     timerTimeout: null,
-    phase: 'LOBBY'
+    phase: 'LOBBY',
+    readyPlayers: new Set()
 };
 
 const fallbackQuestions = [
@@ -33,11 +34,12 @@ const fallbackQuestions = [
 ];
 let gameQuestions = [...fallbackQuestions];
 
-// --- UTILIDADES ---
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(screenId).classList.add('active');
+    const el = document.getElementById(screenId);
+    el.classList.add('active');
 }
 
 function generateRoomCode() {
@@ -47,32 +49,91 @@ function generateRoomCode() {
 
 function getNickname() {
     let name = document.getElementById('player-name').value.trim();
-    if (!name) { alert("¡Tenés que poner un nombre sí o sí, fiera!"); return null; }
+    if (!name) { showToast('¡Tenés que poner un nombre sí o sí, fiera! 😤'); return null; }
     return name;
 }
 
-function toggleHostView() {
-    const setup = document.getElementById('host-setup');
-    setup.style.display = setup.style.display === 'none' ? 'block' : 'none';
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function showToast(msg, type = '', duration = 2800) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast${type ? ' ' + type : ''}`;
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 320);
+    }, duration);
 }
+
+// ── Confetti ──────────────────────────────────────────────────────────────────
+
+function launchConfetti(count = 48) {
+    const wrap = document.createElement('div');
+    wrap.className = 'confetti-wrap';
+    document.body.appendChild(wrap);
+    const colors = ['#f1c40f','#e74c3c','#3498db','#27ae60','#9b59b6','#e67e22','#ecf0f1'];
+    for (let i = 0; i < count; i++) {
+        const cp = document.createElement('div');
+        cp.className = 'cp';
+        cp.style.left   = Math.random() * 100 + 'vw';
+        cp.style.background = colors[Math.floor(Math.random() * colors.length)];
+        const dur = 1.8 + Math.random() * 1.6;
+        cp.style.animationDuration = dur + 's';
+        cp.style.animationDelay   = Math.random() * 0.6 + 's';
+        wrap.appendChild(cp);
+    }
+    setTimeout(() => wrap.remove(), 4000);
+}
+
+// ── Animated SVG Timer ────────────────────────────────────────────────────────
+
+const TIMER_R = 31;
+const TIMER_CIRC = 2 * Math.PI * TIMER_R; // ~194.78
 
 let visualTimer;
 let localTimerRemaining = 0;
+let timerTotal = 60;
 
 function startLocalTimer(seconds) {
+    timerTotal = seconds;
     let t = seconds;
     localTimerRemaining = t;
+
     const container = document.getElementById('timer-container');
-    const display   = document.getElementById('global-timer');
+    const arc       = document.getElementById('timer-arc');
+    const numEl     = document.getElementById('timer-number');
+    const wrap      = document.querySelector('.timer-svg-wrap');
+
+    // Setup arc
+    arc.style.strokeDasharray  = TIMER_CIRC;
+    arc.style.strokeDashoffset = 0;
+
     container.style.display = 'block';
-    display.innerText = t;
+    numEl.innerText = t;
+    wrap.classList.remove('timer-urgent');
+
     clearInterval(visualTimer);
-    visualTimer = setInterval(() => {
+
+    function tick() {
         t--;
         localTimerRemaining = t;
-        if (t >= 0) display.innerText = t;
-        if (t <= 0) clearInterval(visualTimer);
-    }, 1000);
+        if (t < 0) { clearInterval(visualTimer); return; }
+
+        numEl.innerText = t;
+
+        // Arc: shrink from full (0 offset) to empty (CIRC offset)
+        const fraction = t / timerTotal;
+        arc.style.strokeDashoffset = TIMER_CIRC * (1 - fraction);
+
+        // Urgent mode at 10s
+        if (t <= 10) {
+            wrap.classList.add('timer-urgent');
+        }
+    }
+
+    visualTimer = setInterval(tick, 1000);
 }
 
 function stopLocalTimer() {
@@ -80,15 +141,90 @@ function stopLocalTimer() {
     localTimerRemaining = 0;
     const c = document.getElementById('timer-container');
     if (c) c.style.display = 'none';
+    const wrap = document.querySelector('.timer-svg-wrap');
+    if (wrap) wrap.classList.remove('timer-urgent');
 }
 
-// ── Card renderer helpers ────────────────────────────────────────────────────
+// ── Two-step home screen ──────────────────────────────────────────────────────
 
-/**
- * Build a single answer card element.
- *  mode: 'votable'  → green, acts as a button, calls sendVote on click
- *        'preview'  → neutral, read-only (player can't vote this round)
- */
+function goToStepAction() {
+    const name = document.getElementById('player-name').value.trim();
+    if (!name) {
+        showToast('¡Ponete un nombre primero! 😤');
+        document.getElementById('player-name').focus();
+        return;
+    }
+    document.getElementById('step-name').classList.add('step-hidden');
+    const stepAction = document.getElementById('step-action');
+    stepAction.classList.remove('step-hidden');
+    document.getElementById('greeting-display').innerText = `¡Hola, ${name}! 🧉`;
+    // Focus join-code for quick join
+    setTimeout(() => document.getElementById('join-code').focus(), 50);
+}
+
+function goBackToName() {
+    document.getElementById('step-action').classList.add('step-hidden');
+    document.getElementById('step-name').classList.remove('step-hidden');
+    setTimeout(() => document.getElementById('player-name').focus(), 50);
+}
+
+// ── Ready Tracker ─────────────────────────────────────────────────────────────
+
+// Tracks who has submitted: key = playerId, value = bool
+let readyStatus = {};
+
+function initReadyTracker(players) {
+    readyStatus = {};
+    players.forEach(p => readyStatus[p.id] = false);
+    renderReadyTracker(players);
+}
+
+function renderReadyTracker(players) {
+    const list = document.getElementById('ready-list');
+    if (!list) return;
+    list.innerHTML = '';
+    players.forEach(p => {
+        const done = readyStatus[p.id] || false;
+        const row = document.createElement('div');
+        row.className = 'ready-player-row';
+        row.id = `ready-row-${p.id}`;
+        row.innerHTML = `
+            <span class="ready-icon">${done ? '✅' : '✍️'}</span>
+            <span class="ready-name">${p.name}${p.id === myId ? ' (vos)' : ''}</span>
+            <span class="ready-status ${done ? 'done' : 'wait'}">${done ? '¡Listo!' : 'escribiendo...'}</span>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function markPlayerReady(playerId, players) {
+    if (readyStatus[playerId]) return; // already marked
+    readyStatus[playerId] = true;
+
+    const row = document.getElementById(`ready-row-${playerId}`);
+    if (row) {
+        const icon   = row.querySelector('.ready-icon');
+        const status = row.querySelector('.ready-status');
+        icon.innerText = '✅';
+        icon.classList.add('just-ready');
+        status.className = 'ready-status done';
+        status.innerText = '¡Listo!';
+        setTimeout(() => icon.classList.remove('just-ready'), 600);
+    }
+
+    // Toast when someone other than me finishes
+    const p = players.find(pl => pl.id === playerId);
+    if (p && playerId !== myId) {
+        showToast(`${p.name} ya mandó su sarasa ✅`, 'success', 2000);
+    }
+
+    // Check if all done
+    const allDone = players.every(pl => readyStatus[pl.id]);
+    if (allDone) showToast('¡Todos listos! 🚀', 'accent', 2000);
+}
+
+// ── Card renderer helpers ─────────────────────────────────────────────────────
+
 function makeAnswerCard(ans, mode) {
     const el = document.createElement(mode === 'votable' ? 'button' : 'div');
     el.className = `answer-card${mode === 'votable' ? ' votable' : ''}`;
@@ -100,30 +236,25 @@ function makeAnswerCard(ans, mode) {
     return el;
 }
 
-/**
- * Build a result card for the post-vote reveal screen.
- * Shows badges for author / votes / points and an optional ¡Alta Sarasa! badge.
- */
 function makeResultCard(res, isJinx) {
     const card = document.createElement('div');
     card.className = `result-card${res.quiplash ? ' is-winner' : ''}${isJinx ? ' is-jinx' : ''}`;
 
     const nobodyBadge = res.votes === 0
-        ? `<span class="badge badge-nobody">💀 Nadie votó</span>`
-        : '';
+        ? `<span class="badge badge-nobody">💀 Nadie votó</span>` : '';
 
     const voterLine = res.voterNames.length > 0
-        ? `<div class="result-voters">Votado por: ${res.voterNames.join(', ')}</div>`
-        : '';
+        ? `<div class="result-voters">Votado por: ${res.voterNames.join(', ')}</div>` : '';
 
     const sarasaBadge = res.quiplash
-        ? `<span class="badge badge-sarasa">🔥 ¡ALTA SARASA!</span>`
-        : '';
+        ? `<span class="badge badge-sarasa">🔥 ¡ALTA SARASA!</span>` : '';
 
     card.innerHTML = `
         <div class="result-badges">
             <span class="badge badge-author">✍️ ${res.authorName}</span>
-            ${res.votes > 0 ? `<span class="badge badge-votes">👍 ${res.votes} voto${res.votes !== 1 ? 's' : ''}</span>` : nobodyBadge}
+            ${res.votes > 0
+                ? `<span class="badge badge-votes">👍 ${res.votes} voto${res.votes !== 1 ? 's' : ''}</span>`
+                : nobodyBadge}
             ${!isJinx ? `<span class="badge badge-points">+${res.pointsAdded} pts</span>` : ''}
             ${sarasaBadge}
         </div>
@@ -133,49 +264,75 @@ function makeResultCard(res, isJinx) {
     return card;
 }
 
-// ── Client-side game state handler ──────────────────────────────────────────
+// ── Client-side game state handler ────────────────────────────────────────────
+
+// Keep a snapshot of current players for ready tracker
+let currentPlayers = [];
 
 function handleGameState(data) {
     switch (data.type) {
 
-        case 'LOBBY_UPDATE':
+        case 'LOBBY_UPDATE': {
             document.getElementById('lobby-code-big').innerText = data.code;
             const list = document.getElementById('player-list');
             list.innerHTML = '';
             data.players.forEach(p => {
                 const li = document.createElement('li');
-                li.innerText = `${p.name}${p.id === myId ? ' (Vos)' : ''}`;
+                li.innerHTML = `<span>${p.name}${p.id === myId ? ' <em style="color:#7f8c8d;font-weight:400">(vos)</em>' : ''}</span><span style="color:var(--green);font-size:0.8rem;">● online</span>`;
                 list.appendChild(li);
             });
+            currentPlayers = data.players;
             showScreen('screen-lobby');
             break;
+        }
 
-        case 'PHASE_ANSWERING':
+        case 'PHASE_ANSWERING': {
             myAssignments    = data.assignments;
             myAnswers        = {};
             myAnswersSubmitted = false;
+            currentPlayers   = data.players || currentPlayers;
 
             document.getElementById('answering-title').innerText =
-                `${data.round === 3 ? 'RONDA FINAL' : `RONDA ${data.round}`}: Completá la frase`;
+                data.round === 3 ? 'RONDA FINAL: Completá la frase' : `RONDA ${data.round}: Completá la frase`;
 
             const promptsEl = document.getElementById('prompts-container');
             promptsEl.innerHTML = '';
             myAssignments.forEach(q => {
-                promptsEl.innerHTML += `
-                    <div class="prompt-card">
-                        <div class="prompt-text">${q.prompt}</div>
-                        <input type="text" id="answer-${q.id}" placeholder="Tirá tu mejor chamuyo..." autocomplete="off">
-                    </div>`;
+                const card = document.createElement('div');
+                card.className = 'prompt-card';
+                card.id = `prompt-card-${q.id}`;
+                card.innerHTML = `
+                    <div class="prompt-text">${q.prompt}</div>
+                    <input type="text" id="answer-${q.id}" placeholder="Tirá tu mejor chamuyo..." autocomplete="off" maxlength="80">
+                `;
+                promptsEl.appendChild(card);
+
+                // Live feedback: mark card as "answered" while typing
+                const inp = card.querySelector('input');
+                inp.addEventListener('input', () => {
+                    if (inp.value.trim().length > 0) card.classList.add('answered');
+                    else card.classList.remove('answered');
+                });
             });
 
             document.getElementById('btn-submit-answers').disabled = false;
-            document.getElementById('btn-submit-answers').innerText = 'Enviar Sarasa';
+            document.getElementById('btn-submit-answers').innerText = 'Enviar Sarasa 🧉';
             document.getElementById('btn-submit-answers').style.display = 'inline-block';
             document.getElementById('btn-retract-answers').style.display = 'none';
+
+            // Init ready tracker with current players
+            initReadyTracker(currentPlayers);
 
             startLocalTimer(data.time);
             showScreen('screen-answering');
             break;
+        }
+
+        case 'PLAYER_READY': {
+            // A player submitted their answers — update tracker
+            markPlayerReady(data.playerId, currentPlayers);
+            break;
+        }
 
         case 'PHASE_VOTING': {
             document.getElementById('vote-wait-msg').style.display = 'none';
@@ -183,30 +340,19 @@ function handleGameState(data) {
                 data.round === 3 ? 'Votación Final' : '¡A votar!';
             document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
 
-            const cardsEl    = document.getElementById('voting-cards');
+            const cardsEl = document.getElementById('voting-cards');
             cardsEl.innerHTML = '';
 
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
 
-            // ── FIX 1: never show answers twice ──────────────────────────
-            // If the player CAN vote → render votable cards only (they serve
-            //   as both the "see the answers" view and the vote mechanism).
-            // If the player CANNOT vote → render read-only preview cards only.
-
             if (data.round !== 3 && isMyPrompt) {
-                // It's the player's own prompt — they watch, not vote
                 const note = document.createElement('p');
-                note.style.cssText = 'color:var(--accent);font-weight:bold;margin-bottom:12px;';
+                note.style.cssText = 'color:var(--accent);font-weight:800;margin-bottom:12px;';
                 note.innerText = 'Le toca votar a los demás.';
                 cardsEl.appendChild(note);
-
-                // Show answers as read-only preview cards
                 data.answers.forEach(ans => cardsEl.appendChild(makeAnswerCard(ans, 'preview')));
-
             } else {
-                // Player can vote — render interactive cards (no separate preview)
                 data.answers.forEach(ans => {
-                    // In round 3 you can't vote for your own answer
                     const canVoteThis = data.round === 3 ? ans.authorId !== myId : true;
                     cardsEl.appendChild(makeAnswerCard(ans, canVoteThis ? 'votable' : 'preview'));
                 });
@@ -220,11 +366,10 @@ function handleGameState(data) {
         case 'VOTE_RESULT': {
             stopLocalTimer();
 
-            // Reset any between-round leaderboard state
             document.getElementById('result-round-header').style.display = 'none';
             document.getElementById('result-round-scores').style.display = 'none';
-            document.getElementById('result-prompt-text').style.display = 'block';
-            document.getElementById('result-details').style.display    = 'block';
+            document.getElementById('result-prompt-text').style.display  = 'block';
+            document.getElementById('result-details').style.display      = 'block';
             document.getElementById('vote-result-title').innerText = 'Resultados';
 
             document.getElementById('result-prompt-text').innerText = data.prompt.prompt;
@@ -236,27 +381,37 @@ function handleGameState(data) {
                 const jinxCard = document.createElement('div');
                 jinxCard.className = 'result-card is-jinx';
                 jinxCard.innerHTML = `
-                    <div class="result-badges">
-                        <span class="badge badge-sarasa">☠️ CICUTA</span>
-                    </div>
+                    <div class="result-badges"><span class="badge badge-sarasa">☠️ CICUTA</span></div>
                     <div class="result-answer-text">Escribieron lo mismo. 0 puntos para todos.</div>
                 `;
                 resEl.appendChild(jinxCard);
-                // Still show both answers so players can laugh
                 data.results.forEach(res => resEl.appendChild(makeResultCard(res, true)));
+                showToast('¡CICUTA! Mismas respuestas 💀', '', 3000);
             } else {
-                data.results.sort((a, b) => b.votes - a.votes)
-                            .forEach(res => resEl.appendChild(makeResultCard(res, false)));
+                const sorted = [...data.results].sort((a, b) => b.votes - a.votes);
+                sorted.forEach(res => resEl.appendChild(makeResultCard(res, false)));
+
+                // Juice: confetti if someone got ¡Alta Sarasa!
+                const hasQuiplash = sorted.some(r => r.quiplash);
+                if (hasQuiplash) {
+                    launchConfetti(60);
+                    showToast('🔥 ¡ALTA SARASA!', 'accent', 3500);
+                }
+
+                // Toast for the winner of this round
+                if (sorted[0] && sorted[0].votes > 0) {
+                    showToast(`👑 Mejor sarasa: ${sorted[0].authorName}`, 'success', 2500);
+                }
             }
 
             showScreen('screen-vote-result');
             break;
         }
 
-        case 'ROUND_SCORES':
+        case 'ROUND_SCORES': {
             stopLocalTimer();
             document.getElementById('result-prompt-text').style.display = 'none';
-            document.getElementById('result-details').style.display    = 'none';
+            document.getElementById('result-details').style.display     = 'none';
             document.getElementById('vote-result-title').innerText = '';
 
             const rHeader = document.getElementById('result-round-header');
@@ -265,31 +420,44 @@ function handleGameState(data) {
             rHeader.style.display = 'block';
             rScores.innerHTML = '';
             data.players.sort((a, b) => b.score - a.score).forEach((p, i) => {
-                rScores.innerHTML += `<li><span>${i === 0 ? '👑 ' : ''}${p.name}</span><span>${p.score} pts</span></li>`;
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${i === 0 ? '👑 ' : ''}${p.name}</span><span>${p.score} pts</span>`;
+                rScores.appendChild(li);
             });
             rScores.style.display = 'block';
             showScreen('screen-vote-result');
-            break;
 
-        case 'PHASE_SCORES':
+            // Leader toast
+            const leader = data.players[0];
+            if (leader) showToast(`👑 Va primero ${leader.name} con ${leader.score} pts`, 'accent', 3500);
+            break;
+        }
+
+        case 'PHASE_SCORES': {
             stopLocalTimer();
             const scoreList = document.getElementById('final-scores');
             scoreList.innerHTML = '';
-            data.players.sort((a, b) => b.score - a.score).forEach((p, i) => {
-                scoreList.innerHTML += `<li><span>${i === 0 ? '👑 ' : ''}${p.name}</span><span>${p.score} pts</span></li>`;
+            const sorted = [...data.players].sort((a, b) => b.score - a.score);
+            sorted.forEach((p, i) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${i === 0 ? '👑 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : ''}${p.name}</span><span>${p.score} pts</span>`;
+                scoreList.appendChild(li);
             });
             const restartBtn = document.getElementById('host-restart');
             if (restartBtn) restartBtn.style.display = isHost ? 'block' : 'none';
             showScreen('screen-scores');
+
+            // Celebrate!
+            launchConfetti(80);
+            if (sorted[0]) showToast(`🏆 ¡Ganó ${sorted[0].name}! 🧉`, 'accent', 5000);
             break;
+        }
     }
 }
 
-// ── Voting ───────────────────────────────────────────────────────────────────
+// ── Voting ────────────────────────────────────────────────────────────────────
 
-// Called when a player taps a votable card
 function castVote(votedForAuthorId, clickedCard) {
-    // Style all cards: dim others, highlight chosen
     document.querySelectorAll('#voting-cards .answer-card').forEach(c => {
         if (c.id === `card-${votedForAuthorId}`) {
             c.classList.remove('votable');
@@ -302,6 +470,7 @@ function castVote(votedForAuthorId, clickedCard) {
     });
 
     document.getElementById('vote-wait-msg').style.display = 'block';
+    showToast('¡Voto enviado! 🗳️', 'success', 2000);
 
     const payload = { type: 'CMD_VOTE', authorId: votedForAuthorId, voterId: myId };
     if (isHost) handleCommandFromClient(payload);
@@ -329,6 +498,10 @@ function submitAnswers() {
         if (input) input.disabled = true;
     });
 
+    // Mark self as ready locally
+    markPlayerReady(myId, currentPlayers);
+    showToast('¡Sarasa enviada! Esperando a los demás... ✅', 'success', 2500);
+
     const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: myAnswers, id: myId };
     if (isHost) handleCommandFromClient(payload);
     else conn.send(payload);
@@ -336,21 +509,27 @@ function submitAnswers() {
 
 function retractAnswers() {
     if (localTimerRemaining <= 0) {
-        alert('¡Se acabó el tiempo, no podés cambiar tu respuesta!');
+        showToast('¡Se acabó el tiempo, no podés cambiar tu respuesta! ⏰');
         return;
     }
     myAnswersSubmitted = false;
     myAnswers = {};
 
     document.getElementById('btn-submit-answers').disabled     = false;
-    document.getElementById('btn-submit-answers').innerText    = 'Enviar Sarasa';
+    document.getElementById('btn-submit-answers').innerText    = 'Enviar Sarasa 🧉';
     document.getElementById('btn-submit-answers').style.display  = 'inline-block';
     document.getElementById('btn-retract-answers').style.display = 'none';
 
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
-        if (input) input.disabled = false;
+        if (input) { input.disabled = false; }
+        const card = document.getElementById(`prompt-card-${q.id}`);
+        if (card) card.classList.remove('answered');
     });
+
+    // Unmark self
+    readyStatus[myId] = false;
+    renderReadyTracker(currentPlayers);
 
     const payload = { type: 'CMD_RETRACT_ANSWERS', id: myId };
     if (isHost) handleCommandFromClient(payload);
@@ -360,10 +539,10 @@ function retractAnswers() {
 // ── Join / Create ─────────────────────────────────────────────────────────────
 
 function joinGame() {
-    myName = getNickname();
-    if (!myName) return;
+    myName = document.getElementById('player-name').value.trim() || '';
+    if (!myName) { showToast('¡Falta el nombre! 😤'); return; }
     const code = document.getElementById('join-code').value.toUpperCase();
-    if (!code) return alert('Poné un código.');
+    if (!code) { showToast('Poné un código de sala'); return; }
 
     const joinBtn = document.querySelector('#screen-home .btn-secondary');
     if (joinBtn) { joinBtn.disabled = true; joinBtn.innerText = 'Conectando...'; }
@@ -372,7 +551,7 @@ function joinGame() {
 
     peer.on('error', err => {
         console.error('Peer error:', err);
-        alert(`Error de conexión: ${err.type}. Verificá el código e intentá de nuevo.`);
+        showToast(`Error de conexión: ${err.type}. Verificá el código.`);
         if (joinBtn) { joinBtn.disabled = false; joinBtn.innerText = 'Unirse a Partida'; }
         peer.destroy(); peer = null;
     });
@@ -383,13 +562,14 @@ function joinGame() {
 
         conn.on('error', err => {
             console.error('Connection error:', err);
-            alert('No se pudo conectar a la sala. ¿El código es correcto?');
+            showToast('No se pudo conectar. ¿El código es correcto?');
             if (joinBtn) { joinBtn.disabled = false; joinBtn.innerText = 'Unirse a Partida'; }
         });
 
         conn.on('open', () => {
             if (joinBtn) { joinBtn.disabled = false; joinBtn.innerText = 'Unirse a Partida'; }
             conn.send({ type: 'CMD_JOIN', name: myName, id: myId });
+            showToast(`¡Conectado! Bienvenido ${myName} 🧉`, 'accent', 2500);
         });
 
         conn.on('data', data => handleGameState(data));
@@ -397,15 +577,15 @@ function joinGame() {
 }
 
 async function createGame() {
-    myName = getNickname();
-    if (!myName) return;
+    myName = document.getElementById('player-name').value.trim() || '';
+    if (!myName) { showToast('¡Falta el nombre! 😤'); return; }
 
     isHost = true;
     const code   = generateRoomCode();
     myId         = 'HOST';
     const peerId = 'sarasa-' + code;
 
-    const createBtn = document.querySelector('#host-setup button');
+    const createBtn = document.querySelector('#step-action button:not(.btn-secondary):not(.btn-back)');
     if (createBtn) { createBtn.disabled = true; createBtn.innerText = 'Creando sala...'; }
 
     try {
@@ -419,9 +599,9 @@ async function createGame() {
     peer.on('error', err => {
         console.error('Host peer error:', err);
         isHost = false;
-        if (createBtn) { createBtn.disabled = false; createBtn.innerText = 'Crear Nueva Sala'; }
-        alert(err.type === 'unavailable-id'
-            ? 'Ese código de sala ya está en uso, intentá de nuevo.'
+        if (createBtn) { createBtn.disabled = false; createBtn.innerText = 'Crear Nueva Sala 🏠'; }
+        showToast(err.type === 'unavailable-id'
+            ? 'Ese código ya está en uso, intentá de nuevo.'
             : `Error al crear la sala: ${err.type}`);
         peer.destroy(); peer = null;
     });
@@ -430,15 +610,16 @@ async function createGame() {
         serverState.roomCode = code;
         serverState.players.push({ id: myId, name: myName, score: 0 });
 
-        document.getElementById('host-controls').style.display   = 'block';
-        document.getElementById('room-display-tag').innerText    = `SALA: ${code}`;
+        document.getElementById('host-controls').style.display    = 'block';
+        document.getElementById('room-display-tag').innerText     = `SALA: ${code}`;
         document.getElementById('room-display-tag').style.display = 'block';
-        document.getElementById('lobby-code-big').innerText      = code;
+        document.getElementById('lobby-code-big').innerText       = code;
 
-        if (createBtn) { createBtn.disabled = false; createBtn.innerText = 'Crear Nueva Sala'; }
+        if (createBtn) { createBtn.disabled = false; createBtn.innerText = 'Crear Nueva Sala 🏠'; }
 
         showScreen('screen-lobby');
         broadcast({ type: 'LOBBY_UPDATE', players: serverState.players, code, phase: serverState.phase });
+        showToast(`¡Sala ${code} creada! Compartí el código 🏠`, 'accent', 3000);
     });
 
     peer.on('connection', connection => {
@@ -448,7 +629,12 @@ async function createGame() {
             hostConnections = hostConnections.filter(c => c !== connection);
             if (serverState.phase === 'LOBBY') {
                 serverState.players = serverState.players.filter(p => p.id !== connection.peer);
-                broadcast({ type: 'LOBBY_UPDATE', players: serverState.players, code: serverState.roomCode, phase: serverState.phase });
+                broadcast({
+                    type: 'LOBBY_UPDATE',
+                    players: serverState.players,
+                    code: serverState.roomCode,
+                    phase: serverState.phase
+                });
             }
         });
     });
@@ -467,7 +653,12 @@ function handleCommandFromClient(data) {
         const idx = serverState.players.findIndex(p => p.id === data.id);
         if (idx !== -1) serverState.players[idx].name = data.name;
         else serverState.players.push({ id: data.id, name: data.name, score: 0 });
-        broadcast({ type: 'LOBBY_UPDATE', players: serverState.players, code: serverState.roomCode, phase: serverState.phase });
+        broadcast({
+            type: 'LOBBY_UPDATE',
+            players: serverState.players,
+            code: serverState.roomCode,
+            phase: serverState.phase
+        });
     }
 
     else if (data.type === 'CMD_SUBMIT_ANSWERS') {
@@ -478,6 +669,10 @@ function handleCommandFromClient(data) {
                 serverState.answers[qId].push({ authorId: pId, text });
             }
         }
+
+        // Broadcast PLAYER_READY so all clients update their tracker
+        broadcast({ type: 'PLAYER_READY', playerId: pId });
+
         const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
         const totalExpected     = serverState.players.length * expectedPerPlayer;
         const totalReceived     = Object.values(serverState.answers).flat().length;
@@ -492,6 +687,7 @@ function handleCommandFromClient(data) {
         for (const qId of Object.keys(serverState.answers)) {
             serverState.answers[qId] = serverState.answers[qId].filter(a => a.authorId !== pId);
         }
+        // Note: No re-broadcast of ready status needed; client handles locally
     }
 
     else if (data.type === 'CMD_VOTE') {
@@ -513,9 +709,13 @@ function handleCommandFromClient(data) {
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
 function startGame() {
-    if (serverState.players.length < 3) { alert('Se necesitan al menos 3 jugadores.'); return; }
+    if (serverState.players.length < 3) {
+        showToast('Se necesitan al menos 3 jugadores 😅');
+        return;
+    }
     serverState.currentRound = 1;
     serverState.players.forEach(p => p.score = 0);
+    showToast('¡Empieza el juego! 🧉🔥', 'accent', 2500);
     startRound();
 }
 
@@ -550,18 +750,24 @@ function startRound() {
 }
 
 function broadcastAnsweringPhase() {
+    const players = serverState.players;
+
     hostConnections.forEach(c => c.send({
         type: 'PHASE_ANSWERING',
         round: serverState.currentRound,
         assignments: serverState.assignments[c.peer],
+        players: players,
         time: 60
     }));
+
     handleGameState({
         type: 'PHASE_ANSWERING',
         round: serverState.currentRound,
         assignments: serverState.assignments[myId],
+        players: players,
         time: 60
     });
+
     serverState.timerTimeout = setTimeout(() => {
         if (serverState.phase === 'ANSWERING') forceSubmitMissing();
     }, 60000);
@@ -586,7 +792,11 @@ function startVotingPhase() {
         if (serverState.currentRound > serverState.maxRounds) {
             broadcast({ type: 'PHASE_SCORES', players: serverState.players });
         } else {
-            broadcast({ type: 'ROUND_SCORES', round: serverState.currentRound - 1, players: serverState.players });
+            broadcast({
+                type: 'ROUND_SCORES',
+                round: serverState.currentRound - 1,
+                players: serverState.players
+            });
             setTimeout(() => startRound(), 5000);
         }
         return;
@@ -597,12 +807,23 @@ function startVotingPhase() {
 
     if (serverState.currentRound <= 2 && promptAnswers.length < 2) {
         const safety = findReplacementAnswer(currentPrompt.id);
-        promptAnswers.push({ authorId: 'DUMMY', authorName: safety.authorName || 'El Sistema', text: safety.text + ' (Reciclada)' });
+        promptAnswers.push({
+            authorId: 'DUMMY',
+            authorName: safety.authorName || 'El Sistema',
+            text: safety.text + ' (Reciclada)'
+        });
     }
 
     promptAnswers = [...promptAnswers].sort(() => 0.5 - Math.random());
 
-    broadcast({ type: 'PHASE_VOTING', round: serverState.currentRound, prompt: currentPrompt, answers: promptAnswers, time: 20 });
+    broadcast({
+        type: 'PHASE_VOTING',
+        round: serverState.currentRound,
+        prompt: currentPrompt,
+        answers: promptAnswers,
+        time: 20
+    });
+
     serverState.timerTimeout = setTimeout(() => processVotingResults(), 20000);
 }
 
