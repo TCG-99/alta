@@ -354,33 +354,19 @@
             border-top: 1px solid rgba(255,255,255,0.07);
             padding-top: 10px;
         }
-        .safe-answers-label {
-            font-size: 0.72rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: #7f8c8d;
-            margin-bottom: 8px;
-        }
         .safe-points-hint {
             font-weight: 700;
             color: #e67e22;
-            text-transform: none;
-            letter-spacing: 0;
+            font-size: 0.78rem;
         }
-        .safe-answers-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .safe-answer-chip {
+        .safe-answer-btn {
             background: rgba(230,126,34,0.12);
             border: 1px solid rgba(230,126,34,0.35);
             color: #e67e22;
             font-family: 'Nunito', sans-serif;
-            font-size: 0.8rem;
-            font-weight: 700;
-            padding: 5px 11px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            padding: 8px 14px;
             border-radius: 20px;
             cursor: pointer;
             width: auto;
@@ -389,21 +375,21 @@
             transition: background 0.2s, border-color 0.2s, transform 0.12s;
             letter-spacing: 0;
         }
-        .safe-answer-chip:hover:not(:disabled) {
+        .safe-answer-btn:hover:not(:disabled) {
             background: rgba(230,126,34,0.25);
             border-color: #e67e22;
             transform: translateY(-1px) scale(1.02);
             box-shadow: 0 3px 10px rgba(230,126,34,0.2);
         }
-        .safe-answer-chip:active:not(:disabled) {
+        .safe-answer-btn:active:not(:disabled) {
             transform: translateY(0) scale(0.99);
         }
-        .safe-answer-chip.safe-chip-active {
+        .safe-answer-btn.safe-chip-active {
             background: rgba(230,126,34,0.3);
             border-color: #e67e22;
             box-shadow: 0 0 12px rgba(230,126,34,0.3);
         }
-        .safe-answer-chip:disabled {
+        .safe-answer-btn:disabled {
             opacity: 0.35;
             cursor: not-allowed;
         }
@@ -419,6 +405,41 @@
             text-align: center;
         }
         .badge-safe { background: rgba(230,126,34,0.2); border: 1px solid #e67e22; color: #f0a060; }
+
+        /* ── Bot rows in lobby ── */
+        .bot-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(142,68,173,0.1);
+            border: 1px solid rgba(142,68,173,0.3);
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin: 4px 0;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #c39bd3;
+        }
+        .bot-remove-btn {
+            background: rgba(231,76,60,0.2);
+            border: 1px solid rgba(231,76,60,0.4);
+            color: #e74c3c;
+            font-size: 0.75rem;
+            font-weight: 900;
+            padding: 2px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            box-shadow: none;
+        }
+        .bot-remove-btn:hover { background: rgba(231,76,60,0.35); transform: none; }
+        .btn-bots {
+            font-size: 0.9rem;
+            padding: 10px 16px;
+            width: auto;
+            margin: 4px auto;
+        }
 
         /* ── Ready Tracker ── */
         #ready-tracker {
@@ -724,7 +745,25 @@
             <p style="color:#7f8c8d; font-size:0.82rem; margin:-8px 0 14px; font-weight:700; letter-spacing:1px;">COMPARTÍ ESTE CÓDIGO</p>
             <ul id="player-list"></ul>
             <div id="host-controls" style="display: none; margin-top: 16px;">
+                <!-- Bot management (host only) -->
+                <div id="bot-section" style="margin-bottom:12px;">
+                    <div id="bot-list-container" style="margin-bottom:8px;"></div>
+                    <button class="btn-secondary btn-bots" onclick="openBotImport()">🤖 Agregar Bots</button>
+                </div>
                 <button onclick="startGame()">¡Arrancar! 🧉</button>
+            </div>
+        </div>
+
+        <!-- BOT IMPORT MODAL -->
+        <div id="bot-import-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:500; align-items:center; justify-content:center;">
+            <div style="background:var(--card); border-radius:16px; padding:28px; width:90%; max-width:380px; border:1px solid rgba(255,255,255,0.1); box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+                <h2 style="margin-bottom:8px;">🤖 Agregar Bots</h2>
+                <p style="color:#95a5a6; font-size:0.85rem; margin-bottom:12px;">Pegá un JSON de nombres <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;">["Ana","Luis"]</code> o uno por línea:</p>
+                <textarea id="bot-import-textarea" rows="5" placeholder='["Bot1", "Bot2", "Bot3"]&#10;o uno por línea:&#10;Bot1&#10;Bot2' style="width:100%;border-radius:8px;padding:10px;font-size:0.95rem;font-family:inherit;background:rgba(236,240,241,0.95);color:#2c3e50;border:2px solid rgba(52,73,94,0.8);resize:vertical;outline:none;"></textarea>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button onclick="importBotsFromText()" style="flex:1;">Importar ✅</button>
+                    <button onclick="closeBotImport()" class="btn-back" style="flex:0 0 auto;padding:12px 16px;font-size:0.95rem;">Cancelar</button>
+                </div>
             </div>
         </div>
 
