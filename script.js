@@ -12,6 +12,7 @@ let mySafeAnswerUsed = {};   // key: promptId → true if player used a safe ans
 
 let serverState = {
     players: [],
+    bots: [],          // { id, name, score } — virtual players managed by the host
     unusedPrompts: [],
     prompts: [],
     assignments: {},
@@ -81,7 +82,155 @@ function buildShuffledDeck(questions) {
     return [...unseen, ...usedUp];
 }
 
-// ── Utilities ─────────────────────────────────────────────────────────────────
+// ── Bot Management ────────────────────────────────────────────────────────────
+
+/**
+ * Adds bots from an array of names. Called by the host in the lobby.
+ */
+function addBots(names) {
+    names.forEach(name => {
+        const id = 'BOT_' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        serverState.bots.push({ id, name: name.trim(), score: 0 });
+    });
+    updateLobbyWithBots();
+}
+
+function removeBot(botId) {
+    serverState.bots = serverState.bots.filter(b => b.id !== botId);
+    updateLobbyWithBots();
+}
+
+function updateLobbyWithBots() {
+    // Merge real players + bots for the lobby view
+    const allPlayers = [...serverState.players, ...serverState.bots];
+    broadcast({
+        type: 'LOBBY_UPDATE',
+        players: allPlayers,
+        code: serverState.roomCode,
+        phase: serverState.phase,
+        botIds: serverState.bots.map(b => b.id)
+    });
+    renderBotList();
+}
+
+function renderBotList() {
+    const container = document.getElementById('bot-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+    serverState.bots.forEach(bot => {
+        const row = document.createElement('div');
+        row.className = 'bot-row';
+        row.innerHTML = `<span>🤖 ${bot.name}</span><button class="bot-remove-btn" onclick="removeBot('${bot.id}')">✕</button>`;
+        container.appendChild(row);
+    });
+}
+
+function openBotImport() {
+    const modal = document.getElementById('bot-import-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeBotImport() {
+    const modal = document.getElementById('bot-import-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function importBotsFromText() {
+    const textarea = document.getElementById('bot-import-textarea');
+    if (!textarea) return;
+    const raw = textarea.value.trim();
+    if (!raw) { showToast('Escribí o pegá los nombres 😅'); return; }
+
+    let names = [];
+    // Try JSON array first
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            names = parsed.map(n => typeof n === 'string' ? n : n.name || String(n)).filter(Boolean);
+        }
+    } catch(e) {
+        // Fall back to line/comma separated
+        names = raw.split(/[\n,]+/).map(n => n.trim()).filter(Boolean);
+    }
+
+    if (names.length === 0) { showToast('No encontré nombres válidos 🤔'); return; }
+    addBots(names);
+    textarea.value = '';
+    closeBotImport();
+    showToast(`${names.length} bot${names.length !== 1 ? 's' : ''} agregado${names.length !== 1 ? 's' : ''} 🤖`, 'success', 2000);
+}
+
+/**
+ * After answers are collected, host makes bots submit safe answers (no point penalty).
+ * Called from broadcastAnsweringPhase via a timeout.
+ */
+function submitBotAnswers() {
+    serverState.bots.forEach(bot => {
+        const assignedPrompts = serverState.assignments[bot.id] || [];
+        assignedPrompts.forEach(q => {
+            if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
+            if (serverState.answers[q.id].some(a => a.authorId === bot.id)) return;
+
+            // Pick a random safe answer, falling back to a generic one
+            let text = '¡Sarasa botística!';
+            if (q.safeAnswers && q.safeAnswers.length > 0) {
+                text = q.safeAnswers[Math.floor(Math.random() * q.safeAnswers.length)];
+            }
+            // isSafe=false so bots get full points (no penalty)
+            serverState.answers[q.id].push({ authorId: bot.id, authorName: bot.name, text, isSafe: false });
+        });
+
+        // Broadcast ready so tracker updates
+        broadcast({ type: 'PLAYER_READY', playerId: bot.id });
+    });
+
+    // Check if all answers are now in
+    const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
+    const totalExpected = serverState.players.length * expectedPerPlayer;
+    const totalReceived = Object.values(serverState.answers).flat().length;
+    if (totalReceived >= totalExpected && serverState.phase === 'ANSWERING') {
+        clearTimeout(serverState.timerTimeout);
+        startVotingPhase();
+    }
+}
+
+/**
+ * During voting, bots cast votes. They vote randomly but favor answers
+ * that real players have already voted for (weighted toward popular choices).
+ */
+function castBotVotes(prompt, promptAnswers) {
+    const botsToVote = serverState.currentRound <= 2
+        ? serverState.bots.filter(b => !promptAnswers.some(a => a.authorId === b.id))
+        : serverState.bots;
+
+    botsToVote.forEach(bot => {
+        // Can't vote for yourself
+        const eligible = promptAnswers.filter(a => a.authorId !== bot.id && a.authorId !== 'DUMMY');
+        if (eligible.length === 0) return;
+
+        // Build weighted list: each answer gets +1 base + count of real-player votes already cast
+        const currentVotes = serverState.votes[prompt.id] || [];
+        const weights = eligible.map(ans => {
+            const voteCount = currentVotes.filter(v => v.votedFor === ans.authorId).length;
+            return 1 + voteCount * 2; // real player votes have 2x pull
+        });
+        const totalWeight = weights.reduce((s, w) => s + w, 0);
+        let rand = Math.random() * totalWeight;
+        let chosenIdx = 0;
+        for (let i = 0; i < weights.length; i++) {
+            rand -= weights[i];
+            if (rand <= 0) { chosenIdx = i; break; }
+        }
+
+        const chosen = eligible[chosenIdx];
+        if (!serverState.votes[prompt.id]) serverState.votes[prompt.id] = [];
+        if (!serverState.votes[prompt.id].some(v => v.voterId === bot.id)) {
+            serverState.votes[prompt.id].push({ voterId: bot.id, votedFor: chosen.authorId });
+        }
+    });
+}
+
+
 
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -341,9 +490,11 @@ function handleGameState(data) {
             document.getElementById('lobby-code-big').innerText = data.code;
             const list = document.getElementById('player-list');
             list.innerHTML = '';
+            const botIds = new Set(data.botIds || []);
             data.players.forEach(p => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span>${p.name}${p.id === myId ? ' <em style="color:#7f8c8d;font-weight:400">(vos)</em>' : ''}</span><span style="color:var(--green);font-size:0.8rem;">● online</span>`;
+                const isBot = botIds.has(p.id);
+                li.innerHTML = `<span>${isBot ? '🤖 ' : ''}${p.name}${p.id === myId ? ' <em style="color:#7f8c8d;font-weight:400">(vos)</em>' : ''}${isBot ? ' <em style="color:#7f8c8d;font-weight:400">(bot)</em>' : ''}</span><span style="color:${isBot ? 'var(--purple)' : 'var(--green)'};font-size:0.8rem;">${isBot ? '● bot' : '● online'}</span>`;
                 list.appendChild(li);
             });
             currentPlayers = data.players;
@@ -371,13 +522,9 @@ function handleGameState(data) {
                 // Build safe answers section if available
                 let safeAnswersHTML = '';
                 if (q.safeAnswers && q.safeAnswers.length > 0) {
-                    const chips = q.safeAnswers.map((sa, i) =>
-                        `<button type="button" class="safe-answer-chip" data-qid="${q.id}" data-idx="${i}" onclick="useSafeAnswer(${q.id}, '${sa.replace(/'/g, "\\'")}', this)">${sa}</button>`
-                    ).join('');
                     safeAnswersHTML = `
                         <div class="safe-answers-section">
-                            <div class="safe-answers-label">🛡️ Respuestas seguras <span class="safe-points-hint">(vale la mitad de puntos)</span></div>
-                            <div class="safe-answers-chips" id="safe-chips-${q.id}">${chips}</div>
+                            <button type="button" class="safe-answer-btn" id="safe-btn-${q.id}" onclick="useSafeAnswer(${q.id}, this)">🛡️ Usar respuesta segura <span class="safe-points-hint">(vale la mitad de puntos)</span></button>
                         </div>`;
                 }
 
@@ -397,8 +544,8 @@ function handleGameState(data) {
                     const safeFlag = document.getElementById(`safe-flag-${q.id}`);
                     if (safeFlag) safeFlag.remove();
                     mySafeAnswerUsed[q.id] = false;
-                    const chips = document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`);
-                    chips.forEach(c => c.classList.remove('safe-chip-active'));
+                    const safeBtn = document.getElementById(`safe-btn-${q.id}`);
+                    if (safeBtn) safeBtn.classList.remove('safe-chip-active');
                 });
             });
 
@@ -566,9 +713,16 @@ function castVote(votedForAuthorId, clickedCard) {
 
 // ── Safe Answer usage ─────────────────────────────────────────────────────────
 
-function useSafeAnswer(qId, text, chipEl) {
+function useSafeAnswer(qId, btnEl) {
     const input = document.getElementById(`answer-${qId}`);
     if (!input || input.disabled) return;
+
+    // Find the assignment to get its safeAnswers list
+    const assignment = myAssignments.find(q => q.id == qId);
+    if (!assignment || !assignment.safeAnswers || assignment.safeAnswers.length === 0) return;
+
+    // Pick a random safe answer
+    const text = assignment.safeAnswers[Math.floor(Math.random() * assignment.safeAnswers.length)];
 
     // Fill the input
     input.value = text;
@@ -577,10 +731,8 @@ function useSafeAnswer(qId, text, chipEl) {
     // Mark safe flag
     mySafeAnswerUsed[qId] = true;
 
-    // Highlight active chip, deactivate others
-    const chips = document.querySelectorAll(`#safe-chips-${qId} .safe-answer-chip`);
-    chips.forEach(c => c.classList.remove('safe-chip-active'));
-    chipEl.classList.add('safe-chip-active');
+    // Highlight the button
+    btnEl.classList.add('safe-chip-active');
 
     // Show indicator inside the card
     let safeFlag = document.getElementById(`safe-flag-${qId}`);
@@ -613,7 +765,8 @@ function submitAnswers() {
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
         if (input) input.disabled = true;
-        document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`).forEach(c => c.disabled = true);
+        const safeBtn = document.getElementById(`safe-btn-${q.id}`);
+        if (safeBtn) safeBtn.disabled = true;
     });
 
     // Mark self as ready locally
@@ -642,11 +795,10 @@ function retractAnswers() {
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
         if (input) { input.disabled = false; }
-        document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`).forEach(c => c.disabled = false);
+        const safeBtn = document.getElementById(`safe-btn-${q.id}`);
+        if (safeBtn) { safeBtn.disabled = false; safeBtn.classList.remove('safe-chip-active'); }
         const safeFlag = document.getElementById(`safe-flag-${q.id}`);
         if (safeFlag) safeFlag.remove();
-        const chips = document.querySelectorAll(`#safe-chips-${q.id} .safe-answer-chip`);
-        chips.forEach(c => c.classList.remove('safe-chip-active'));
         const card = document.getElementById(`prompt-card-${q.id}`);
         if (card) card.classList.remove('answered');
     });
@@ -824,10 +976,19 @@ function handleCommandFromClient(data) {
         if (!serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId)) {
             serverState.votes[currentPrompt.id].push({ voterId: data.voterId, votedFor: data.authorId });
         }
+        const promptAnswers = serverState.answers[currentPrompt.id] || [];
+        const botsInThisVote = serverState.currentRound <= 2
+            ? serverState.players.filter(p => p.id.startsWith('BOT_') && !promptAnswers.some(a => a.authorId === p.id))
+            : serverState.players.filter(p => p.id.startsWith('BOT_'));
+        const realAuthors = serverState.currentRound <= 2 ? 2 : 0;
         const expectedVotes = serverState.currentRound <= 2
-            ? serverState.players.length - 2
+            ? serverState.players.length - realAuthors + botsInThisVote.length - botsInThisVote.length
             : serverState.players.length;
-        if (serverState.votes[currentPrompt.id].length >= expectedVotes) {
+        // Simpler: just count non-author, non-dummy voters expected
+        const allVoters = serverState.currentRound <= 2
+            ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id && a.authorId !== 'DUMMY'))
+            : serverState.players;
+        if (serverState.votes[currentPrompt.id].length >= allVoters.length) {
             clearTimeout(serverState.timerTimeout);
             processVotingResults();
         }
@@ -837,12 +998,17 @@ function handleCommandFromClient(data) {
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
 function startGame() {
-    if (serverState.players.length < 3) {
+    const totalPlayers = serverState.players.length + serverState.bots.length;
+    if (totalPlayers < 3) {
         showToast('Se necesitan al menos 3 jugadores 😅');
         return;
     }
     serverState.currentRound = 1;
     serverState.players.forEach(p => p.score = 0);
+    serverState.bots.forEach(b => b.score = 0);
+    // Merge bots into the players list for the game
+    serverState.players = [...serverState.players, ...serverState.bots];
+    serverState.bots = [];
     showToast('¡Empieza el juego! 🧉🔥', 'accent', 2500);
     startRound();
 }
@@ -903,6 +1069,12 @@ function broadcastAnsweringPhase() {
     serverState.timerTimeout = setTimeout(() => {
         if (serverState.phase === 'ANSWERING') forceSubmitMissing();
     }, 60000);
+
+    // Bots submit their answers after a short random delay (3-8s)
+    const botDelay = 3000 + Math.random() * 5000;
+    setTimeout(() => {
+        if (serverState.phase === 'ANSWERING') submitBotAnswers();
+    }, botDelay);
 }
 
 function forceSubmitMissing() {
@@ -955,6 +1127,22 @@ function startVotingPhase() {
         answers: promptAnswers,
         time: 20
     });
+
+    // Bots vote after a short delay (1-4s), weighted toward what real players voted
+    const botVoteDelay = 1000 + Math.random() * 3000;
+    setTimeout(() => {
+        if (serverState.phase === 'VOTING') {
+            castBotVotes(currentPrompt, promptAnswers);
+            // Check if all votes are now in
+            const allVoters = serverState.currentRound <= 2
+                ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id && a.authorId !== 'DUMMY'))
+                : serverState.players;
+            if ((serverState.votes[currentPrompt.id] || []).length >= allVoters.length) {
+                clearTimeout(serverState.timerTimeout);
+                processVotingResults();
+            }
+        }
+    }, botVoteDelay);
 
     serverState.timerTimeout = setTimeout(() => processVotingResults(), 20000);
 }
