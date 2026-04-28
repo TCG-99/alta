@@ -129,8 +129,19 @@ function renderBotList() {
 // URL to the bots JSON file — served alongside preguntas.json
 const BOTS_JSON_URL = 'bots.json';
 
+// Pool of available bot names (loaded once, drawn from one-at-a-time)
+let availableBotNames = [];
+
 async function loadBotsFromServer() {
     const btn = document.getElementById('btn-load-bots');
+
+    // If we already have names loaded, just add one more
+    if (availableBotNames.length > 0) {
+        addOneBotFromPool(btn);
+        return;
+    }
+
+    // First time: fetch the list
     if (btn) { btn.disabled = true; btn.innerText = 'Cargando...'; }
     try {
         const res = await fetch(BOTS_JSON_URL);
@@ -139,16 +150,32 @@ async function loadBotsFromServer() {
         if (!Array.isArray(parsed)) { showToast('bots.json debe ser un array de nombres 🤔'); return; }
         const names = parsed.map(n => typeof n === 'string' ? n : n.name || String(n)).filter(Boolean);
         if (names.length === 0) { showToast('No encontré nombres en bots.json 🤔'); return; }
-        // Clear existing bots before loading fresh list
-        serverState.bots = [];
-        addBots(names);
-        showToast(`${names.length} bot${names.length !== 1 ? 's' : ''} cargado${names.length !== 1 ? 's' : ''} 🤖`, 'success', 2000);
+        // Shuffle the pool
+        availableBotNames = names.sort(() => 0.5 - Math.random());
+        addOneBotFromPool(btn);
     } catch(e) {
         console.error('Error cargando bots.json:', e);
         showToast('No se pudo cargar bots.json — ¿existe el archivo? 😬');
     } finally {
-        if (btn) { btn.disabled = false; btn.innerText = '🤖 Cargar Bots'; }
+        if (btn) { btn.disabled = false; btn.innerText = '🤖 + Bot'; }
     }
+}
+
+function addOneBotFromPool(btn) {
+    // Filter out names already in use
+    const usedNames = new Set(serverState.bots.map(b => b.name));
+    const remaining = availableBotNames.filter(n => !usedNames.has(n));
+
+    if (remaining.length === 0) {
+        showToast('Ya están todos los bots disponibles 🤖', '', 2000);
+        if (btn) { btn.disabled = false; btn.innerText = '🤖 + Bot'; }
+        return;
+    }
+
+    const name = remaining[0];
+    addBots([name]);
+    showToast(`🤖 ${name} se unió como bot`, 'success', 2000);
+    if (btn) { btn.disabled = false; btn.innerText = '🤖 + Bot'; }
 }
 
 /**
@@ -460,8 +487,12 @@ function makeResultCard(res, isJinx) {
     const sarasaBadge = res.quiplash
         ? `<span class="badge badge-sarasa">🔥 ¡ALTA SARASA!</span>` : '';
 
-    const safeBadge = res.isSafe
-        ? `<span class="badge badge-safe">🛡️ Respuesta segura</span>` : '';
+    // Distinguish: explicit safe answer uses shield, timed-out flush uses clock
+    const safeBadge = res.isSafe && res.text
+        ? (res._wasExplicitSafe
+            ? `<span class="badge badge-safe">🛡️ Respuesta segura</span>`
+            : `<span class="badge badge-safe">⏰ Justo... José de Urquiza</span>`)
+        : '';
 
     card.innerHTML = `
         <div class="result-badges">
@@ -569,6 +600,56 @@ function handleGameState(data) {
             break;
         }
 
+        case 'CMD_FORCE_FLUSH': {
+            // Time ran out — submit whatever is currently typed, marked as half-points
+            if (myAnswersSubmitted) break; // already submitted properly
+            const flushAnswers = {};
+            const flushSafe = {};
+            let hasAny = false;
+            myAssignments.forEach(q => {
+                const input = document.getElementById(`answer-${q.id}`);
+                const val = input ? input.value.trim() : '';
+                flushAnswers[q.id] = val; // may be empty string
+                flushSafe[q.id] = true;   // always half-points for time-out submit
+                if (val) hasAny = true;
+            });
+            if (hasAny) {
+                showToast('¡Justo... José de Urquiza! Se mandó lo que había ⏰', 'accent', 3000);
+            }
+            // Send even if empty — host will mark missing ones as isEmpty
+            const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: flushAnswers, safeAnswerUsed: flushSafe, id: myId, isFlush: true };
+            if (isHost) handleCommandFromClient(payload);
+            else conn.send(payload);
+            break;
+        }
+
+        case 'PHASE_VOTING_SKIP': {
+            stopLocalTimer();
+            // Show a brief auto-resolve screen before results appear
+            const cardsEl2 = document.getElementById('voting-cards');
+            cardsEl2.innerHTML = '';
+            document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
+            document.getElementById('vote-wait-msg').style.display = 'none';
+            document.getElementById('voting-title').innerText = data.isCicuta ? '☠️ ¡CICUTA!' : '🏆 Victoria automática';
+
+            if (data.isCicuta) {
+                const note = document.createElement('p');
+                note.style.cssText = 'color:#e74c3c;font-weight:800;font-size:1.1rem;margin:12px 0;';
+                note.innerText = '¡Escribieron lo mismo! 0 puntos para todos.';
+                cardsEl2.appendChild(note);
+                showToast('¡CICUTA automática! Mismas respuestas 💀', '', 3500);
+            } else {
+                const note = document.createElement('p');
+                note.style.cssText = 'color:var(--accent);font-weight:800;font-size:1rem;margin:12px 0;';
+                note.innerText = 'El oponente no mandó nada. ¡Victoria por abandono! (mitad de puntos)';
+                cardsEl2.appendChild(note);
+                data.answers.filter(a => !a.isEmpty).forEach(ans => cardsEl2.appendChild(makeAnswerCard(ans, 'preview')));
+                showToast('Victoria automática 🏆 (mitad de puntos)', 'accent', 3000);
+            }
+            showScreen('screen-voting');
+            break;
+        }
+
         case 'PHASE_VOTING': {
             document.getElementById('vote-wait-msg').style.display = 'none';
             document.getElementById('voting-title').innerText =
@@ -622,6 +703,23 @@ function handleGameState(data) {
                 resEl.appendChild(jinxCard);
                 data.results.forEach(res => resEl.appendChild(makeResultCard(res, true)));
                 showToast('¡CICUTA! Mismas respuestas 💀', '', 3000);
+            } else if (data.hasEmpty) {
+                // Show a forfeit card first, then the winner
+                const forfeitCard = document.createElement('div');
+                forfeitCard.className = 'result-card';
+                const emptyRes = data.results.find(r => r.isEmpty);
+                forfeitCard.innerHTML = `
+                    <div class="result-badges">
+                        <span class="badge badge-author">✍️ ${emptyRes ? emptyRes.authorName : 'Alguien'}</span>
+                        <span class="badge badge-nobody">💀 Se colgó mal</span>
+                        <span class="badge badge-points">+0 pts</span>
+                    </div>
+                    <div class="result-answer-text" style="color:#7f8c8d;font-style:italic;">— no mandó nada —</div>
+                `;
+                resEl.appendChild(forfeitCard);
+                const winRes = data.results.find(r => !r.isEmpty);
+                if (winRes) resEl.appendChild(makeResultCard(winRes, false));
+                showToast('Victoria por abandono 🏆 (mitad de puntos)', 'accent', 3000);
             } else {
                 const sorted = [...data.results].sort((a, b) => b.votes - a.votes);
                 sorted.forEach(res => resEl.appendChild(makeResultCard(res, false)));
@@ -950,7 +1048,16 @@ function handleCommandFromClient(data) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
             if (!serverState.answers[qId].some(a => a.authorId === pId)) {
                 const isSafe = data.safeAnswerUsed && data.safeAnswerUsed[qId] ? true : false;
-                serverState.answers[qId].push({ authorId: pId, text, isSafe });
+                const isEmpty = data.isFlush && (!text || text.trim() === '');
+                const player = serverState.players.find(p => p.id === pId);
+                serverState.answers[qId].push({
+                    authorId: pId,
+                    authorName: player ? player.name : 'Alguien',
+                    text: isEmpty ? '' : text,
+                    isSafe,
+                    isEmpty,
+                    isFlush: !!data.isFlush && !isEmpty  // timed-out but had something typed
+                });
             }
         }
 
@@ -1004,6 +1111,25 @@ function startGame() {
     startRound();
 }
 
+/**
+ * Resolve special placeholders in a prompt for a given player list.
+ * <ANYPLAYER> picks one random player name (same for everyone in the round).
+ * The resolved name is stored in prompt.resolvedPlaceholders so clients all see the same name.
+ */
+function resolvePlaceholders(prompt, players) {
+    if (!prompt.prompt.includes('<ANYPLAYER>')) return prompt;
+    // Pick once per prompt (deterministic for this round)
+    if (!prompt._resolvedAnyPlayer) {
+        const pick = players[Math.floor(Math.random() * players.length)];
+        prompt._resolvedAnyPlayer = pick ? pick.name : 'Alguien';
+    }
+    return {
+        ...prompt,
+        prompt: prompt.prompt.replace(/<ANYPLAYER>/g, prompt._resolvedAnyPlayer),
+        _resolvedAnyPlayer: prompt._resolvedAnyPlayer
+    };
+}
+
 function startRound() {
     serverState.phase            = 'ANSWERING';
     serverState.answers          = {};
@@ -1016,7 +1142,8 @@ function startRound() {
     if (serverState.currentRound <= 2) {
         if (serverState.unusedPrompts.length < N)
             serverState.unusedPrompts = buildShuffledDeck(gameQuestions);
-        serverState.prompts = serverState.unusedPrompts.splice(0, N);
+        serverState.prompts = serverState.unusedPrompts.splice(0, N)
+            .map(p => resolvePlaceholders(p, players));
         // Mark these prompts as seen across games
         historyMark(serverState.prompts);
         for (let i = 0; i < N; i++) {
@@ -1028,7 +1155,7 @@ function startRound() {
     } else {
         if (serverState.unusedPrompts.length < 1)
             serverState.unusedPrompts = buildShuffledDeck(gameQuestions);
-        const fp = serverState.unusedPrompts.splice(0, 1)[0];
+        const fp = resolvePlaceholders(serverState.unusedPrompts.splice(0, 1)[0], players);
         serverState.prompts = [fp];
         // Mark final-round prompt as seen
         historyMark([fp]);
@@ -1069,14 +1196,29 @@ function broadcastAnsweringPhase() {
 }
 
 function forceSubmitMissing() {
-    for (const [pId, assignedPrompts] of Object.entries(serverState.assignments)) {
-        assignedPrompts.forEach(q => {
-            if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
-            if (!serverState.answers[q.id].some(a => a.authorId === pId))
-                serverState.answers[q.id].push({ authorId: pId, text: 'Me colgué mal...' });
-        });
-    }
-    startVotingPhase();
+    // Ask clients to flush their current textbox content before we finalize
+    broadcast({ type: 'CMD_FORCE_FLUSH' });
+
+    // Give a brief window for clients to send their in-progress answers
+    setTimeout(() => {
+        for (const [pId, assignedPrompts] of Object.entries(serverState.assignments)) {
+            assignedPrompts.forEach(q => {
+                if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
+                if (!serverState.answers[q.id].some(a => a.authorId === pId)) {
+                    // No answer at all — mark as empty (handled in voting)
+                    const player = serverState.players.find(p => p.id === pId);
+                    serverState.answers[q.id].push({
+                        authorId: pId,
+                        authorName: player ? player.name : 'Alguien',
+                        text: '',
+                        isSafe: true,
+                        isEmpty: true
+                    });
+                }
+            });
+        }
+        startVotingPhase();
+    }, 1500);
 }
 
 function startVotingPhase() {
@@ -1107,6 +1249,42 @@ function startVotingPhase() {
             authorName: safety.authorName || 'El Sistema',
             text: safety.text + ' (Reciclada)'
         });
+    }
+
+    // Feature 3: if one answer is empty, the real one wins automatically with half-points
+    const emptyIdx = promptAnswers.findIndex(a => a.isEmpty);
+    const realIdx  = promptAnswers.findIndex(a => !a.isEmpty && a.authorId !== 'DUMMY');
+    if (emptyIdx !== -1 && realIdx !== -1 && serverState.currentRound <= 2) {
+        // Auto-resolve without voting — real answer gets half-points
+        promptAnswers[realIdx] = { ...promptAnswers[realIdx], isSafe: true };
+        // Store resolved answers so processVotingResults can read them
+        serverState.answers[currentPrompt.id] = promptAnswers;
+        broadcast({
+            type: 'PHASE_VOTING_SKIP',
+            prompt: currentPrompt,
+            answers: promptAnswers,
+            winnerId: promptAnswers[realIdx].authorId
+        });
+        setTimeout(() => processVotingResults(), 3000);
+        return;
+    }
+
+    // Feature 4: if both answers are identical (Cicuta), resolve immediately without voting
+    const nonDummy = promptAnswers.filter(a => a.authorId !== 'DUMMY');
+    const isCicuta = serverState.currentRound <= 2
+        && nonDummy.length === 2
+        && nonDummy[0].text.trim().toLowerCase() === nonDummy[1].text.trim().toLowerCase()
+        && nonDummy[0].text.trim() !== '';
+    if (isCicuta) {
+        serverState.answers[currentPrompt.id] = promptAnswers;
+        broadcast({
+            type: 'PHASE_VOTING_SKIP',
+            prompt: currentPrompt,
+            answers: promptAnswers,
+            isCicuta: true
+        });
+        setTimeout(() => processVotingResults(), 3000);
+        return;
     }
 
     promptAnswers = [...promptAnswers].sort(() => 0.5 - Math.random());
@@ -1153,39 +1331,54 @@ function processVotingResults() {
     const promptAnswers = serverState.answers[currentPrompt.id] || [];
     const votes         = serverState.votes[currentPrompt.id]   || [];
 
-    let isJinx = serverState.currentRound <= 2
+    // Feature 3: if one answer is empty, real answer wins with all votes (half-points via isSafe)
+    const hasEmpty = promptAnswers.some(a => a.isEmpty);
+    const realAnswer = promptAnswers.find(a => !a.isEmpty && a.authorId !== 'DUMMY');
+
+    let isJinx = !hasEmpty && serverState.currentRound <= 2
         && promptAnswers.length === 2
+        && promptAnswers.filter(a => !a.isEmpty).length === 2
         && promptAnswers[0].text.toLowerCase() === promptAnswers[1].text.toLowerCase();
 
-    const totalVotes       = votes.length;
+    // For empty-vs-real: fabricate votes so real answer gets full eligible voter count
+    let effectiveVotes = votes;
+    if (hasEmpty && realAnswer) {
+        const eligibleVoters = serverState.players.filter(p =>
+            !promptAnswers.some(a => a.authorId === p.id)
+        );
+        effectiveVotes = eligibleVoters.map(p => ({ voterId: p.id, votedFor: realAnswer.authorId }));
+    }
+
+    const totalVotes       = effectiveVotes.length;
     const roundMultiplier  = serverState.currentRound === 2 ? 2 : serverState.currentRound === 3 ? 3 : 1;
 
     const resultsData = promptAnswers.map(ans => {
+        // Skip empty answers from results display (they show up as a special card)
         const author     = serverState.players.find(p => p.id === ans.authorId);
         const authorName = ans.authorId === 'DUMMY' ? ans.authorName : (author ? author.name : 'Desconocido');
-        const voterDetails = votes
+        const voterDetails = effectiveVotes
             .filter(v => v.votedFor === ans.authorId)
             .map(v => { const vi = serverState.players.find(p => p.id === v.voterId); return vi ? vi.name : 'Alguien'; });
 
         const voteCount = voterDetails.length;
         let pointsAdded = 0, quiplash = false;
 
-        if (!isJinx && totalVotes > 0) {
+        if (!isJinx && !ans.isEmpty && totalVotes > 0) {
             pointsAdded = Math.floor((voteCount / totalVotes) * 1000) * roundMultiplier;
             if (serverState.currentRound <= 2 && voteCount === totalVotes) {
                 pointsAdded += 500 * roundMultiplier;
                 quiplash = true;
             }
-            // Safe answer: half points
+            // Safe answer (timed-out or explicit): half points
             if (ans.isSafe) pointsAdded = Math.floor(pointsAdded / 2);
         }
 
-        if (author && !isJinx && ans.authorId !== 'DUMMY') author.score += pointsAdded;
+        if (author && !isJinx && !ans.isEmpty && ans.authorId !== 'DUMMY') author.score += pointsAdded;
 
-        return { authorName, text: ans.text, isSafe: ans.isSafe || false, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
+        return { authorName, text: ans.text, isSafe: ans.isSafe || false, isEmpty: ans.isEmpty || false, _wasExplicitSafe: ans.isSafe && !ans.isFlush, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
     });
 
-    broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, results: resultsData });
+    broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, hasEmpty, results: resultsData });
 
     setTimeout(() => {
         serverState.currentVoteIndex++;
