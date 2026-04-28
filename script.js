@@ -135,37 +135,40 @@ function closeBotImport() {
     if (modal) modal.style.display = 'none';
 }
 
-function importBotsFromText() {
-    const textarea = document.getElementById('bot-import-textarea');
-    if (!textarea) return;
-    const raw = textarea.value.trim();
-    if (!raw) { showToast('Escribí o pegá los nombres 😅'); return; }
+function importBotsFromFile(input) {
+    const file = input.files[0];
+    if (!file) return;
 
-    let names = [];
-    // Try JSON array first
-    try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-            names = parsed.map(n => typeof n === 'string' ? n : n.name || String(n)).filter(Boolean);
+    const reader = new FileReader();
+    reader.onload = e => {
+        let names = [];
+        try {
+            const parsed = JSON.parse(e.target.result);
+            if (Array.isArray(parsed)) {
+                names = parsed.map(n => typeof n === 'string' ? n : n.name || String(n)).filter(Boolean);
+            } else {
+                showToast('El JSON debe ser un array de nombres 🤔'); return;
+            }
+        } catch(err) {
+            showToast('JSON inválido — revisá el archivo 😬'); return;
         }
-    } catch(e) {
-        // Fall back to line/comma separated
-        names = raw.split(/[\n,]+/).map(n => n.trim()).filter(Boolean);
-    }
-
-    if (names.length === 0) { showToast('No encontré nombres válidos 🤔'); return; }
-    addBots(names);
-    textarea.value = '';
-    closeBotImport();
-    showToast(`${names.length} bot${names.length !== 1 ? 's' : ''} agregado${names.length !== 1 ? 's' : ''} 🤖`, 'success', 2000);
+        if (names.length === 0) { showToast('No encontré nombres en el archivo 🤔'); return; }
+        addBots(names);
+        closeBotImport();
+        showToast(`${names.length} bot${names.length !== 1 ? 's' : ''} agregado${names.length !== 1 ? 's' : ''} 🤖`, 'success', 2000);
+        input.value = ''; // reset so same file can be re-imported if needed
+    };
+    reader.readAsText(file);
 }
 
 /**
  * After answers are collected, host makes bots submit safe answers (no point penalty).
  * Called from broadcastAnsweringPhase via a timeout.
+ * Bots are identified as players whose id starts with 'BOT_'.
  */
 function submitBotAnswers() {
-    serverState.bots.forEach(bot => {
+    const bots = serverState.players.filter(p => p.id.startsWith('BOT_'));
+    bots.forEach(bot => {
         const assignedPrompts = serverState.assignments[bot.id] || [];
         assignedPrompts.forEach(q => {
             if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
@@ -184,11 +187,16 @@ function submitBotAnswers() {
         broadcast({ type: 'PLAYER_READY', playerId: bot.id });
     });
 
-    // Check if all answers are now in
+    // Check if all human answers are in (bots already submitted above)
+    checkAllAnswersIn();
+}
+
+function checkAllAnswersIn() {
+    if (serverState.phase !== 'ANSWERING') return;
     const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
     const totalExpected = serverState.players.length * expectedPerPlayer;
     const totalReceived = Object.values(serverState.answers).flat().length;
-    if (totalReceived >= totalExpected && serverState.phase === 'ANSWERING') {
+    if (totalReceived >= totalExpected) {
         clearTimeout(serverState.timerTimeout);
         startVotingPhase();
     }
@@ -197,14 +205,17 @@ function submitBotAnswers() {
 /**
  * During voting, bots cast votes. They vote randomly but favor answers
  * that real players have already voted for (weighted toward popular choices).
+ * Bots are identified as players whose id starts with 'BOT_'.
  */
 function castBotVotes(prompt, promptAnswers) {
+    const allBots = serverState.players.filter(p => p.id.startsWith('BOT_'));
+    // In rounds 1-2, a bot that authored an answer for this prompt doesn't vote on it
     const botsToVote = serverState.currentRound <= 2
-        ? serverState.bots.filter(b => !promptAnswers.some(a => a.authorId === b.id))
-        : serverState.bots;
+        ? allBots.filter(b => !promptAnswers.some(a => a.authorId === b.id))
+        : allBots;
 
     botsToVote.forEach(bot => {
-        // Can't vote for yourself
+        // Can't vote for yourself (already filtered above for rounds 1-2; handle round 3 here)
         const eligible = promptAnswers.filter(a => a.authorId !== bot.id && a.authorId !== 'DUMMY');
         if (eligible.length === 0) return;
 
@@ -216,7 +227,7 @@ function castBotVotes(prompt, promptAnswers) {
         });
         const totalWeight = weights.reduce((s, w) => s + w, 0);
         let rand = Math.random() * totalWeight;
-        let chosenIdx = 0;
+        let chosenIdx = eligible.length - 1;
         for (let i = 0; i < weights.length; i++) {
             rand -= weights[i];
             if (rand <= 0) { chosenIdx = i; break; }
@@ -953,13 +964,7 @@ function handleCommandFromClient(data) {
         // Broadcast PLAYER_READY so all clients update their tracker
         broadcast({ type: 'PLAYER_READY', playerId: pId });
 
-        const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
-        const totalExpected     = serverState.players.length * expectedPerPlayer;
-        const totalReceived     = Object.values(serverState.answers).flat().length;
-        if (totalReceived >= totalExpected && serverState.phase === 'ANSWERING') {
-            clearTimeout(serverState.timerTimeout);
-            startVotingPhase();
-        }
+        checkAllAnswersIn();
     }
 
     else if (data.type === 'CMD_RETRACT_ANSWERS') {
@@ -976,19 +981,12 @@ function handleCommandFromClient(data) {
         if (!serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId)) {
             serverState.votes[currentPrompt.id].push({ voterId: data.voterId, votedFor: data.authorId });
         }
+        // Check if all eligible voters have voted
         const promptAnswers = serverState.answers[currentPrompt.id] || [];
-        const botsInThisVote = serverState.currentRound <= 2
-            ? serverState.players.filter(p => p.id.startsWith('BOT_') && !promptAnswers.some(a => a.authorId === p.id))
-            : serverState.players.filter(p => p.id.startsWith('BOT_'));
-        const realAuthors = serverState.currentRound <= 2 ? 2 : 0;
-        const expectedVotes = serverState.currentRound <= 2
-            ? serverState.players.length - realAuthors + botsInThisVote.length - botsInThisVote.length
-            : serverState.players.length;
-        // Simpler: just count non-author, non-dummy voters expected
-        const allVoters = serverState.currentRound <= 2
-            ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id && a.authorId !== 'DUMMY'))
+        const eligibleVoters = serverState.currentRound <= 2
+            ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id))
             : serverState.players;
-        if (serverState.votes[currentPrompt.id].length >= allVoters.length) {
+        if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
             clearTimeout(serverState.timerTimeout);
             processVotingResults();
         }
@@ -1133,11 +1131,11 @@ function startVotingPhase() {
     setTimeout(() => {
         if (serverState.phase === 'VOTING') {
             castBotVotes(currentPrompt, promptAnswers);
-            // Check if all votes are now in
-            const allVoters = serverState.currentRound <= 2
-                ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id && a.authorId !== 'DUMMY'))
+            // Check if all eligible voters have now voted
+            const eligibleVoters = serverState.currentRound <= 2
+                ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id))
                 : serverState.players;
-            if ((serverState.votes[currentPrompt.id] || []).length >= allVoters.length) {
+            if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
                 clearTimeout(serverState.timerTimeout);
                 processVotingResults();
             }
