@@ -44,7 +44,7 @@
 {
 "id": 8,
 "prompt": "¿Cuál es el peor ruido que podés escuchar al sacudir un regalo de Navidad?",
-"safeAnswers": ["Nada","Algo que se rompe en mil pedazos","Burbujeo"]
+"safeAnswers": ["Nada","Algo que se rompe en mil pedazos","Sonidos de ropa interior","Serpientes de cascabel"]
 },
 
 {
@@ -230,31 +230,31 @@
 {
 "id": 39,
 "prompt": "Con la luna llena, algunas personas se transforman en...",
-"safeAnswers": ["Conductores del carril izquierdo","Vecinos con taladro"]
+"safeAnswers": ["Conductores del carril izquierdo","Vecinos con taladro","Giles"]
 },
 
 {
 "id": 40,
 "prompt": "Un eslogan rechazado para una marca de leche.",
-"safeAnswers": ["'Sale de la vaca, ¿qué más querés?'","'Más o menos fresca'"]
+"safeAnswers": ["'Sale de la vaca, ¿qué más querés?'","'Más o menos fresca'","'La del lechero'"]
 },
 
 {
 "id": 41,
 "prompt": "Una señal clara de que estás atrapado en una pesadilla horrible.",
-"safeAnswers": ["Tenés que rendir un final que nunca estudiaste","Llegás tarde al trabajo y no sabés dónde queda"]
+"safeAnswers": ["Tenés que rendir un final que nunca estudiaste","Llegás tarde al trabajo y no sabés dónde queda","Los dientes se te caen sin parar"]
 },
 
 {
 "id": 42,
 "prompt": "Un comentario que JAMÁS se hizo en la historia de internet.",
-"safeAnswers": ["'Qué buen punto, tenés razón'","'Me equivoqué, te pido disculpas'"]
+"safeAnswers": ["'Qué buen punto, tenés razón'","'Me equivoqué, te pido disculpas'","'No tengo opinión al respecto'"]
 },
 
 {
 "id": 43,
 "prompt": "El juguete menos popular de este año: 'El muñeco de...'",
-"safeAnswers": ["Dentista con torno","Contador que explica el monotributo"]
+"safeAnswers": ["Un bloque de madera","Contador que explica el monotributo","El mercado de valores"]
 },
 
 {
@@ -278,7 +278,7 @@
 {
 "id": 47,
 "prompt": "Un nombre terrible para un modelo de auto que se maneja solo.",
-"safeAnswers": ["Confíat"]
+"safeAnswers": ["Confíat","Impacto","Merodeador"]
 },
 
 {
@@ -302,7 +302,7 @@
 {
 "id": 51,
 "prompt": "Cuando muera, quiero estar rodeado de mi familia y ____.",
-"safeAnswers": ["Silencio por favor"]
+"safeAnswers": ["Silencio, por favor","Mucho queso","Actores de mis personajes favoritos"]
 },
 
 {
@@ -398,7 +398,7 @@
 {
 "id": 67,
 "prompt": "Antes de la miel, Winnie the Pooh tenía una adicción terrible a ____.",
-"safeAnswers": ["Las apuestas deportivas","Las remeras rojas"]
+"safeAnswers": ["Las apuestas deportivas","Las remeras rojas","La hidromiel"]
 },
 
 {
@@ -410,7 +410,7 @@
 {
 "id": 69,
 "prompt": "Te das cuenta de que la cata de vinos es barata cuando el chardonnay tiene notas de ____.",
-"safeAnswers": ["Tetrabrick","Sahumerio"]
+"safeAnswers": ["Tetrabrick","Sahumerio","Aserrín"]
 },
 
 {
