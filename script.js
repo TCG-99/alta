@@ -111,19 +111,6 @@ function updateLobbyWithBots() {
         phase: serverState.phase,
         botIds: serverState.bots.map(b => b.id)
     });
-    renderBotList();
-}
-
-function renderBotList() {
-    const container = document.getElementById('bot-list-container');
-    if (!container) return;
-    container.innerHTML = '';
-    serverState.bots.forEach(bot => {
-        const row = document.createElement('div');
-        row.className = 'bot-row';
-        row.innerHTML = `<span>🤖 ${bot.name}</span><button class="bot-remove-btn" onclick="removeBot('${bot.id}')">✕</button>`;
-        container.appendChild(row);
-    });
 }
 
 // URL to the bots JSON file — served alongside preguntas.json
@@ -487,12 +474,11 @@ function makeResultCard(res, isJinx) {
     const sarasaBadge = res.quiplash
         ? `<span class="badge badge-sarasa">🔥 ¡ALTA SARASA!</span>` : '';
 
-    // Distinguish: explicit safe answer uses shield, timed-out flush uses clock
+    // Respuesta Segura (chosen by player) and José de Urquiza (timed out) are distinct mechanics
     const safeBadge = res.isSafe && res.text
-        ? (res._wasExplicitSafe
-            ? `<span class="badge badge-safe">🛡️ Respuesta segura</span>`
-            : `<span class="badge badge-safe">⏰ Justo... José de Urquiza</span>`)
-        : '';
+        ? `<span class="badge badge-safe">🛡️ Respuesta Segura</span>` : '';
+    const joseBadge = res.isJose && res.text && !res.isEmpty
+        ? `<span class="badge badge-safe">⏰ Justo... José de Urquiza</span>` : '';
 
     card.innerHTML = `
         <div class="result-badges">
@@ -503,6 +489,7 @@ function makeResultCard(res, isJinx) {
             ${!isJinx ? `<span class="badge badge-points">+${res.pointsAdded} pts</span>` : ''}
             ${sarasaBadge}
             ${safeBadge}
+            ${joseBadge}
         </div>
         <div class="result-answer-text">"${res.text}"</div>
         ${voterLine}
@@ -518,7 +505,21 @@ let currentPlayers = [];
 function handleGameState(data) {
     switch (data.type) {
 
+        case 'GAME_IN_PROGRESS': {
+            showToast('Esta partida ya empezó. Esperá la próxima 🧉', '', 4000);
+            // Return to home screen after a moment
+            setTimeout(() => {
+                if (peer) { try { peer.destroy(); } catch(e) {} peer = null; }
+                conn = null;
+                showScreen('screen-home');
+            }, 2500);
+            break;
+        }
+
         case 'LOBBY_UPDATE': {
+            // Guard: if a player connects mid-game, don't yank everyone back to the lobby screen
+            if (!isHost && serverState.phase !== 'LOBBY') break;
+
             document.getElementById('lobby-code-big').innerText = data.code;
             const list = document.getElementById('player-list');
             list.innerHTML = '';
@@ -526,7 +527,16 @@ function handleGameState(data) {
             data.players.forEach(p => {
                 const li = document.createElement('li');
                 const isBot = botIds.has(p.id);
-                li.innerHTML = `<span>${isBot ? '🤖 ' : ''}${p.name}${p.id === myId ? ' <em style="color:#7f8c8d;font-weight:400">(vos)</em>' : ''}${isBot ? ' <em style="color:#7f8c8d;font-weight:400">(bot)</em>' : ''}</span><span style="color:${isBot ? 'var(--purple)' : 'var(--green)'};font-size:0.8rem;">${isBot ? '● bot' : '● online'}</span>`;
+                const removeBtn = (isHost && isBot)
+                    ? `<button class="bot-remove-btn" onclick="removeBot('${p.id}')" style="margin-left:auto;background:transparent;border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:2px 8px;font-size:0.8rem;cursor:pointer;width:auto;box-shadow:none;">✕</button>`
+                    : '';
+                li.style.cssText = 'display:flex;align-items:center;gap:8px;';
+                li.innerHTML = `<span>${isBot ? '🤖 ' : ''}${p.name}${p.id === myId ? ' <em style="color:#7f8c8d;font-weight:400">(vos)</em>' : ''}${isBot ? ' <em style="color:#7f8c8d;font-weight:400">(bot)</em>' : ''}</span><span style="color:${isBot ? 'var(--purple)' : 'var(--green)'};font-size:0.8rem;margin-left:auto;">${isBot ? '● bot' : '● online'}</span>${removeBtn}`;
+                // If host added a remove button, the status dot shouldn't have margin-left:auto anymore
+                if (isHost && isBot) {
+                    const statusSpan = li.querySelector('span:nth-child(2)');
+                    if (statusSpan) statusSpan.style.marginLeft = '4px';
+                }
                 list.appendChild(li);
             });
             currentPlayers = data.players;
@@ -601,25 +611,23 @@ function handleGameState(data) {
         }
 
         case 'CMD_FORCE_FLUSH': {
-            // Time ran out — submit whatever is currently typed, marked as half-points
-            if (myAnswersSubmitted) break; // already submitted properly
+            // Time ran out — submit whatever is currently typed.
+            // isJose=true means half-points for being late, NOT a Respuesta Segura.
+            // The host handles its own answers directly in forceSubmitMissing(), so skip here.
+            if (myAnswersSubmitted || isHost) break;
             const flushAnswers = {};
-            const flushSafe = {};
             let hasAny = false;
             myAssignments.forEach(q => {
                 const input = document.getElementById(`answer-${q.id}`);
                 const val = input ? input.value.trim() : '';
-                flushAnswers[q.id] = val; // may be empty string
-                flushSafe[q.id] = true;   // always half-points for time-out submit
+                flushAnswers[q.id] = val;
                 if (val) hasAny = true;
             });
             if (hasAny) {
                 showToast('¡Justo... José de Urquiza! Se mandó lo que había ⏰', 'accent', 3000);
             }
-            // Send even if empty — host will mark missing ones as isEmpty
-            const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: flushAnswers, safeAnswerUsed: flushSafe, id: myId, isFlush: true };
-            if (isHost) handleCommandFromClient(payload);
-            else conn.send(payload);
+            const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: flushAnswers, safeAnswerUsed: {}, id: myId, isJose: true };
+            conn.send(payload);
             break;
         }
 
@@ -1019,7 +1027,32 @@ async function createGame() {
     });
 }
 
-// ── Host broadcast & command handling ────────────────────────────────────────
+function cancelHosting() {
+    if (!confirm('¿Abandonar la sala? Se desconectarán todos los jugadores.')) return;
+
+    // Tear down PeerJS
+    if (peer) { try { peer.destroy(); } catch(e) {} peer = null; }
+    hostConnections = [];
+
+    // Reset all game state
+    isHost = false;
+    myId = '';
+    serverState.players = [];
+    serverState.bots = [];
+    serverState.phase = 'LOBBY';
+    serverState.roomCode = null;
+    availableBotNames = [];
+
+    // Reset lobby UI
+    document.getElementById('host-controls').style.display    = 'none';
+    document.getElementById('room-display-tag').style.display = 'none';
+    document.getElementById('room-display-tag').innerText     = 'SALA: ----';
+    document.getElementById('lobby-code-big').innerText       = '----';
+    document.getElementById('player-list').innerHTML          = '';
+
+    stopLocalTimer();
+    showScreen('screen-home');
+}
 
 function broadcast(data) {
     handleGameState(data);
@@ -1029,6 +1062,12 @@ function broadcast(data) {
 function handleCommandFromClient(data) {
 
     if (data.type === 'CMD_JOIN') {
+        if (serverState.phase !== 'LOBBY') {
+            // Game already started — tell this connection the game is in progress
+            const lateConn = hostConnections.find(c => c.peer === data.id);
+            if (lateConn) lateConn.send({ type: 'GAME_IN_PROGRESS' });
+            return;
+        }
         // Prevent a real player from accidentally getting an ID that looks like a bot
         const idx = serverState.players.findIndex(p => p.id === data.id);
         if (idx !== -1) serverState.players[idx].name = data.name;
@@ -1047,16 +1086,17 @@ function handleCommandFromClient(data) {
         for (const [qId, text] of Object.entries(data.answers)) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
             if (!serverState.answers[qId].some(a => a.authorId === pId)) {
-                const isSafe = data.safeAnswerUsed && data.safeAnswerUsed[qId] ? true : false;
-                const isEmpty = data.isFlush && (!text || text.trim() === '');
+                const isSafe = !!(data.safeAnswerUsed && data.safeAnswerUsed[qId]);
+                const isJose = !!data.isJose;                       // timed-out flush
+                const isEmpty = isJose && (!text || text.trim() === '');
                 const player = serverState.players.find(p => p.id === pId);
                 serverState.answers[qId].push({
                     authorId: pId,
                     authorName: player ? player.name : 'Alguien',
                     text: isEmpty ? '' : text,
-                    isSafe,
-                    isEmpty,
-                    isFlush: !!data.isFlush && !isEmpty  // timed-out but had something typed
+                    isSafe,   // player chose Respuesta Segura button
+                    isJose,   // player was timed out (Justo... José de Urquiza)
+                    isEmpty
                 });
             }
         }
@@ -1196,22 +1236,50 @@ function broadcastAnsweringPhase() {
 }
 
 function forceSubmitMissing() {
+    // First, flush the host's own in-progress answers directly (host never goes through CMD_FORCE_FLUSH)
+    if (!myAnswersSubmitted) {
+        myAssignments.forEach(q => {
+            if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
+            if (!serverState.answers[q.id].some(a => a.authorId === myId)) {
+                const input = document.getElementById(`answer-${q.id}`);
+                const val = input ? input.value.trim() : '';
+                const player = serverState.players.find(p => p.id === myId);
+                serverState.answers[q.id].push({
+                    authorId: myId,
+                    authorName: player ? player.name : myName,
+                    text: val,
+                    isJose: true,   // timed-out: half-points, NOT a Respuesta Segura
+                    isEmpty: !val
+                });
+            }
+        });
+        const hostHadSomething = myAssignments.some(q => {
+            const input = document.getElementById(`answer-${q.id}`);
+            return input && input.value.trim();
+        });
+        if (hostHadSomething) {
+            showToast('¡Justo... José de Urquiza! Se mandó lo que había ⏰', 'accent', 3000);
+        }
+        broadcast({ type: 'PLAYER_READY', playerId: myId });
+    }
+
     // Ask clients to flush their current textbox content before we finalize
-    broadcast({ type: 'CMD_FORCE_FLUSH' });
+    hostConnections.forEach(c => c.send({ type: 'CMD_FORCE_FLUSH' }));
 
     // Give a brief window for clients to send their in-progress answers
     setTimeout(() => {
         for (const [pId, assignedPrompts] of Object.entries(serverState.assignments)) {
+            if (pId === myId) continue; // already handled above
             assignedPrompts.forEach(q => {
                 if (!serverState.answers[q.id]) serverState.answers[q.id] = [];
                 if (!serverState.answers[q.id].some(a => a.authorId === pId)) {
-                    // No answer at all — mark as empty (handled in voting)
+                    // No answer received at all — fully empty
                     const player = serverState.players.find(p => p.id === pId);
                     serverState.answers[q.id].push({
                         authorId: pId,
                         authorName: player ? player.name : 'Alguien',
                         text: '',
-                        isSafe: true,
+                        isJose: true,
                         isEmpty: true
                     });
                 }
@@ -1251,13 +1319,12 @@ function startVotingPhase() {
         });
     }
 
-    // Feature 3: if one answer is empty, the real one wins automatically with half-points
+    // If one answer is empty (timed out with nothing), the real one wins automatically with half-points
     const emptyIdx = promptAnswers.findIndex(a => a.isEmpty);
     const realIdx  = promptAnswers.findIndex(a => !a.isEmpty && a.authorId !== 'DUMMY');
     if (emptyIdx !== -1 && realIdx !== -1 && serverState.currentRound <= 2) {
-        // Auto-resolve without voting — real answer gets half-points
-        promptAnswers[realIdx] = { ...promptAnswers[realIdx], isSafe: true };
-        // Store resolved answers so processVotingResults can read them
+        // Auto-resolve without voting — winner gets José de Urquiza half-points (victory by forfeit)
+        promptAnswers[realIdx] = { ...promptAnswers[realIdx], isJose: true };
         serverState.answers[currentPrompt.id] = promptAnswers;
         broadcast({
             type: 'PHASE_VOTING_SKIP',
@@ -1369,13 +1436,13 @@ function processVotingResults() {
                 pointsAdded += 500 * roundMultiplier;
                 quiplash = true;
             }
-            // Safe answer (timed-out or explicit): half points
-            if (ans.isSafe) pointsAdded = Math.floor(pointsAdded / 2);
+            // Both Respuesta Segura and José de Urquiza yield half points
+            if (ans.isSafe || ans.isJose) pointsAdded = Math.floor(pointsAdded / 2);
         }
 
         if (author && !isJinx && !ans.isEmpty && ans.authorId !== 'DUMMY') author.score += pointsAdded;
 
-        return { authorName, text: ans.text, isSafe: ans.isSafe || false, isEmpty: ans.isEmpty || false, _wasExplicitSafe: ans.isSafe && !ans.isFlush, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
+        return { authorName, text: ans.text, isSafe: ans.isSafe || false, isJose: ans.isJose || false, isEmpty: ans.isEmpty || false, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
     });
 
     broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, hasEmpty, results: resultsData });
