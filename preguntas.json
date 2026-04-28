@@ -380,78 +380,78 @@
 {
 "id": 64,
 "prompt": "Un dato sobre vos que impresionaría a un nene de cuatro años.",
-"safeAnswers": ["Que puedo hacer un huevo frito","Que sé manejar","Que una vez vi un dinosaurio de verdad (en un museo)","Que tengo 10 dólares","Que soy amigo del kiosquero"]
+"safeAnswers": ["Que existía antes de Youtube","Que sé manejar","Que una vez vi un dinosaurio de verdad (en un museo)"]
 },
 
 {
 "id": 65,
 "prompt": "¿¡Un soborno!? ¿Es un soborno darle ____ a un juez federal?",
-"safeAnswers": ["Facturas de manteca","Medialunas de grasa","Una caja de alfajores Havanna","Un bono de nafta","Empanadas de jamón y queso"]
+"safeAnswers": ["Medialunas","Una caja de alfajores Havanna","Empanadas de jamón y queso"]
 },
 
 {
 "id": 66,
 "prompt": "¡Dato poco conocido! A Da Vinci le gustaba esconder ____ en sus cuadros.",
-"safeAnswers": ["La lista del súper","Stickers de dinosaurios","El horario del colectivo","Cupones de descuento vencidos","El número de teléfono del fontanero"]
+"safeAnswers": ["La lista del súper","Códigos creo","El horario del colectivo"]
 },
 
 {
 "id": 67,
 "prompt": "Antes de la miel, Winnie the Pooh tenía una adicción terrible a ____.",
-"safeAnswers": ["El dulce de leche importado","Las medialunas de grasa","El Fernet a las 11am","El mate amargo sin lavado","Las masitas de té del jardín de infantes"]
+"safeAnswers": ["Las apuestas deportivas","Las remeras rojas"]
 },
 
 {
 "id": 68,
 "prompt": "La única cosa que nunca deberías poner en una heladera compartida.",
-"safeAnswers": ["Un tupper sin nombre con olor raro","El sushi del martes de la semana pasada","Algo que 'lo prueba uno solo'","El mate con yerba de hace tres semanas","El postre que 'era de todos'"]
+"safeAnswers": ["El tupper de la encomienda de tu vieja","Un huevo duro","El postre que 'era de todos'"]
 },
 
 {
 "id": 69,
 "prompt": "Te das cuenta de que la cata de vinos es barata cuando el chardonnay tiene notas de ____.",
-"safeAnswers": ["Tetrabrick de cartón","Limpiador multiuso con olor a pino","Nafta súper sin plomo","Goma de borrar nueva","Sahumerio de lavanda del kiosco"]
+"safeAnswers": ["Tetrabrick","Sahumerio"]
 },
 
 {
 "id": 70,
 "prompt": "Nada puede detener a Terminator. Bueno, nada excepto ____.",
-"safeAnswers": ["Una fila del ANSES","El Wi-Fi del trabajo","Actualizar Windows a las 8:59am","La burocracia del Registro Civil","Elegir entre 47 salsas en el delivery"]
+"safeAnswers": ["Una fila del ANSES","El Wi-Fi de la plaza","Actualizar el Windows pirata"]
 },
 
 {
 "id": 71,
 "prompt": "El parque de diversiones fue un fracaso. ¡¿Ahora qué hacemos con todos estos dinosaurios clonados?!",
-"safeAnswers": ["Que sean los de Seguridad","Los mandamos a la obra de construcción de al lado","Uber Eats, modalidad dino","Los ponemos en el congreso, que ya hay gente así","Los alquilamos para cumpleaños de 15"]
+"safeAnswers": ["Los mandamos al Parque de la Costa","Los ponemos en el congreso, que ya hay gente así","Los alquilamos para cumpleaños de 15"]
 },
 
 {
 "id": 72,
 "prompt": "Lo peor que podés pisar estando descalzo.",
-"safeAnswers": ["Un LEGO a las 3am","La ofrenda que dejó el gato","Un chicle caliente en verano","El charco misterioso del baño","Una uva del año nuevo que nadie limpió"]
+"safeAnswers": ["Un LEGO","La ofrenda que dejó el gato","Un chicle caliente en verano","El charco misterioso del baño"]
 },
 
 {
 "id": 73,
 "prompt": "En el cielo vas a estar rodeado de amigos, familia y, por alguna razón, ____.",
-"safeAnswers": ["El vecino que hacía ruido","Tu primer jefe","El tipo de la fila que siempre te chocaba","El profe de matemáticas del secundario","El barman que nunca te entendió el pedido"]
+"safeAnswers": ["El vecino que hacía ruido","Tu primer jefe","Anakin Skywalker"]
 },
 
 {
 "id": 74,
 "prompt": "Plan para robar un banco: Paso 1. Acercarse al cajero. Paso 2. ____.",
-"safeAnswers": ["Sacar número y esperar","Preguntar si hay cuotas sin interés","Pedir hablar con el gerente","Completar el formulario en seis copias","Volver mañana que hoy cerraron temprano"]
+"safeAnswers": ["Sacar número y esperar","Preguntar si hay cuotas sin interés","Completar el formulario en seis copias","Volver mañana que hoy cerraron temprano"]
 },
 
 {
 "id": 75,
 "prompt": "El truco más grande que el Diablo jamás realizó fue ____.",
-"safeAnswers": ["Convencer a alguien de que el lunes es buen día para empezar la dieta","Inventar el servicio al cliente automatizado","Que la cuota del gimnasio se debite igual aunque no vayas","Que el Wi-Fi se corte exactamente cuando vas a pagar","Hacer creer que los formularios son necesarios"]
+"safeAnswers": ["Convencer a alguien de que el lunes es buen día para empezar la dieta","Inventar el servicio al cliente automatizado","Que el internet se corte exactamente cuando lo necesitás"]
 },
 
 {
 "id": 76,
 "prompt": "Una señal clara de que tu compañero de trabajo es un robot.",
-"safeAnswers": ["Nunca come en el office","Siempre llega exactamente a horario","Dice 'procesando' antes de responder un mail","Tiene cara de pantalla apagada los lunes","Nunca queja del café pero tampoco lo toma"]
+"safeAnswers": ["Siempre llega exactamente a horario","Dice 'procesando' antes de responder un mail","Nunca se queja del café pero tampoco lo toma"]
 }
 ]
