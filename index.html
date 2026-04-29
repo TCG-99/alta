@@ -793,6 +793,15 @@
                 <button onclick="location.reload()">Salir</button>
             </div>
         </div>
+
+        <div id="screen-spectating" class="screen">
+            <h2>⏳ Esperando para entrar</h2>
+            <p style="font-size:1.1rem;margin-bottom:8px;">¡Hola, <strong id="spectating-name"></strong>!</p>
+            <p id="spectating-info" style="color:#bdc3c7;font-size:0.95rem;max-width:320px;margin:0 auto 24px;line-height:1.5;"></p>
+            <div style="font-size:2.5rem;margin-bottom:16px;animation:titlePulse 2s ease-in-out infinite;">🧉</div>
+            <p style="color:#7f8c8d;font-size:0.85rem;">Vas a entrar automáticamente cuando empiece la siguiente ronda.</p>
+            <button onclick="location.reload()" style="margin-top:24px;background:transparent;border:1px solid #636e72;color:#b2bec3;font-size:0.85rem;padding:8px 20px;">Cancelar y volver</button>
+        </div>
     </div>
 
     <div id="toast-container"></div>
