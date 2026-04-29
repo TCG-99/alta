@@ -12,7 +12,8 @@ let mySafeAnswerUsed = {};   // key: promptId → true if player used a safe ans
 
 let serverState = {
     players: [],
-    bots: [],          // { id, name, score } — virtual players managed by the host
+    bots: [],            // { id, name, score } — virtual players managed by the host
+    pendingPlayers: [],  // mid-game joiners waiting for the next round boundary
     unusedPrompts: [],
     prompts: [],
     assignments: {},
@@ -183,8 +184,8 @@ function submitBotAnswers() {
             if (q.safeAnswers && q.safeAnswers.length > 0) {
                 text = q.safeAnswers[Math.floor(Math.random() * q.safeAnswers.length)];
             }
-            // isSafe=false so bots get full points (no penalty)
-            serverState.answers[q.id].push({ authorId: bot.id, authorName: bot.name, text, isSafe: false });
+            // isSafe=false, halfPoints=false — bots get full points
+            serverState.answers[q.id].push({ authorId: bot.id, authorName: bot.name, text, isSafe: false, isTimedOut: false, halfPoints: false });
         });
 
         // Broadcast ready so tracker updates
@@ -477,7 +478,7 @@ function makeResultCard(res, isJinx) {
     // Respuesta Segura (chosen by player) and José de Urquiza (timed out) are distinct mechanics
     const safeBadge = res.isSafe && res.text
         ? `<span class="badge badge-safe">🛡️ Respuesta Segura</span>` : '';
-    const joseBadge = res.isJose && res.text && !res.isEmpty
+    const timedOutBadge = res.isTimedOut && res.text && !res.isEmpty
         ? `<span class="badge badge-safe">⏰ Justo... José de Urquiza</span>` : '';
 
     card.innerHTML = `
@@ -489,7 +490,7 @@ function makeResultCard(res, isJinx) {
             ${!isJinx ? `<span class="badge badge-points">+${res.pointsAdded} pts</span>` : ''}
             ${sarasaBadge}
             ${safeBadge}
-            ${joseBadge}
+            ${timedOutBadge}
         </div>
         <div class="result-answer-text">"${res.text}"</div>
         ${voterLine}
@@ -505,14 +506,24 @@ let currentPlayers = [];
 function handleGameState(data) {
     switch (data.type) {
 
-        case 'GAME_IN_PROGRESS': {
-            showToast('Esta partida ya empezó. Esperá la próxima 🧉', '', 4000);
-            // Return to home screen after a moment
-            setTimeout(() => {
-                if (peer) { try { peer.destroy(); } catch(e) {} peer = null; }
-                conn = null;
-                showScreen('screen-home');
-            }, 2500);
+        case 'SPECTATING': {
+            // Mid-game join — show a waiting screen until next round
+            myName = data.name;
+            document.getElementById('spectating-name').innerText = data.name;
+            const roundsLeft = data.maxRounds - data.currentRound;
+            document.getElementById('spectating-info').innerText =
+                roundsLeft > 0
+                    ? `La partida está en la Ronda ${data.currentRound} de ${data.maxRounds}. Vas a poder jugar desde la próxima ronda.`
+                    : `La partida está en la ronda final. Vas a entrar en el próximo juego.`;
+            showScreen('screen-spectating');
+            break;
+        }
+
+        case 'JOINING_NOW': {
+            // Host is starting a new round and this player is now active
+            myName = data.name;
+            showToast(`¡Entraste al juego, ${data.name}! 🎉`, 'accent', 3000);
+            // PHASE_ANSWERING will arrive immediately after via broadcastAnsweringPhase
             break;
         }
 
@@ -612,7 +623,7 @@ function handleGameState(data) {
 
         case 'CMD_FORCE_FLUSH': {
             // Time ran out — submit whatever is currently typed.
-            // isJose=true means half-points for being late, NOT a Respuesta Segura.
+            // isTimedOut=true triggers the José de Urquiza mechanic (half-points), NOT Respuesta Segura.
             // The host handles its own answers directly in forceSubmitMissing(), so skip here.
             if (myAnswersSubmitted || isHost) break;
             const flushAnswers = {};
@@ -626,7 +637,7 @@ function handleGameState(data) {
             if (hasAny) {
                 showToast('¡Justo... José de Urquiza! Se mandó lo que había ⏰', 'accent', 3000);
             }
-            const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: flushAnswers, safeAnswerUsed: {}, id: myId, isJose: true };
+            const payload = { type: 'CMD_SUBMIT_ANSWERS', answers: flushAnswers, safeAnswerUsed: {}, id: myId, isTimedOut: true };
             conn.send(payload);
             break;
         }
@@ -1022,6 +1033,9 @@ async function createGame() {
                     phase: serverState.phase,
                     botIds: serverState.bots.map(b => b.id)
                 });
+            } else {
+                // Remove from pending if they disconnect before their round starts
+                serverState.pendingPlayers = serverState.pendingPlayers.filter(p => p.id !== connection.peer);
             }
         });
     });
@@ -1039,6 +1053,7 @@ function cancelHosting() {
     myId = '';
     serverState.players = [];
     serverState.bots = [];
+    serverState.pendingPlayers = [];
     serverState.phase = 'LOBBY';
     serverState.roomCode = null;
     availableBotNames = [];
@@ -1063,9 +1078,19 @@ function handleCommandFromClient(data) {
 
     if (data.type === 'CMD_JOIN') {
         if (serverState.phase !== 'LOBBY') {
-            // Game already started — tell this connection the game is in progress
+            // Game in progress — park this player as a spectator until the next round
             const lateConn = hostConnections.find(c => c.peer === data.id);
-            if (lateConn) lateConn.send({ type: 'GAME_IN_PROGRESS' });
+            const alreadyPending = serverState.pendingPlayers.some(p => p.id === data.id);
+            const alreadyPlaying = serverState.players.some(p => p.id === data.id);
+            if (!alreadyPending && !alreadyPlaying) {
+                serverState.pendingPlayers.push({ id: data.id, name: data.name, score: 0 });
+            }
+            if (lateConn) lateConn.send({
+                type: 'SPECTATING',
+                name: data.name,
+                currentRound: serverState.currentRound,
+                maxRounds: serverState.maxRounds
+            });
             return;
         }
         // Prevent a real player from accidentally getting an ID that looks like a bot
@@ -1086,16 +1111,18 @@ function handleCommandFromClient(data) {
         for (const [qId, text] of Object.entries(data.answers)) {
             if (!serverState.answers[qId]) serverState.answers[qId] = [];
             if (!serverState.answers[qId].some(a => a.authorId === pId)) {
-                const isSafe = !!(data.safeAnswerUsed && data.safeAnswerUsed[qId]);
-                const isJose = !!data.isJose;                       // timed-out flush
-                const isEmpty = isJose && (!text || text.trim() === '');
+                const isSafe      = !!(data.safeAnswerUsed && data.safeAnswerUsed[qId]);
+                const isTimedOut  = !!data.isTimedOut;
+                const isEmpty     = isTimedOut && (!text || text.trim() === '');
+                const halfPoints  = isSafe || isTimedOut;  // either mechanic → half points
                 const player = serverState.players.find(p => p.id === pId);
                 serverState.answers[qId].push({
                     authorId: pId,
                     authorName: player ? player.name : 'Alguien',
                     text: isEmpty ? '' : text,
-                    isSafe,   // player chose Respuesta Segura button
-                    isJose,   // player was timed out (Justo... José de Urquiza)
+                    isSafe,       // player chose Respuesta Segura button
+                    isTimedOut,   // player's answer was auto-submitted (José de Urquiza)
+                    halfPoints,   // score this answer at half, for any reason
                     isEmpty
                 });
             }
@@ -1171,6 +1198,17 @@ function resolvePlaceholders(prompt, players) {
 }
 
 function startRound() {
+    // Flush any pending mid-game joiners into the active player list
+    if (serverState.pendingPlayers.length > 0) {
+        serverState.players.push(...serverState.pendingPlayers);
+        // Notify each newly-activated player that they're now in the game
+        serverState.pendingPlayers.forEach(p => {
+            const conn = hostConnections.find(c => c.peer === p.id);
+            if (conn) conn.send({ type: 'JOINING_NOW', name: p.name });
+        });
+        serverState.pendingPlayers = [];
+    }
+
     serverState.phase            = 'ANSWERING';
     serverState.answers          = {};
     serverState.votes            = {};
@@ -1248,7 +1286,8 @@ function forceSubmitMissing() {
                     authorId: myId,
                     authorName: player ? player.name : myName,
                     text: val,
-                    isJose: true,   // timed-out: half-points, NOT a Respuesta Segura
+                    isTimedOut: true,  // Justo... José de Urquiza mechanic
+                    halfPoints: true,  // scored at half regardless of why
                     isEmpty: !val
                 });
             }
@@ -1279,7 +1318,8 @@ function forceSubmitMissing() {
                         authorId: pId,
                         authorName: player ? player.name : 'Alguien',
                         text: '',
-                        isJose: true,
+                        isTimedOut: true,
+                        halfPoints: true,
                         isEmpty: true
                     });
                 }
@@ -1323,8 +1363,8 @@ function startVotingPhase() {
     const emptyIdx = promptAnswers.findIndex(a => a.isEmpty);
     const realIdx  = promptAnswers.findIndex(a => !a.isEmpty && a.authorId !== 'DUMMY');
     if (emptyIdx !== -1 && realIdx !== -1 && serverState.currentRound <= 2) {
-        // Auto-resolve without voting — winner gets José de Urquiza half-points (victory by forfeit)
-        promptAnswers[realIdx] = { ...promptAnswers[realIdx], isJose: true };
+        // Auto-resolve without voting — winner gets half-points for winning by forfeit
+        promptAnswers[realIdx] = { ...promptAnswers[realIdx], halfPoints: true };
         serverState.answers[currentPrompt.id] = promptAnswers;
         broadcast({
             type: 'PHASE_VOTING_SKIP',
@@ -1436,13 +1476,24 @@ function processVotingResults() {
                 pointsAdded += 500 * roundMultiplier;
                 quiplash = true;
             }
-            // Both Respuesta Segura and José de Urquiza yield half points
-            if (ans.isSafe || ans.isJose) pointsAdded = Math.floor(pointsAdded / 2);
+            // halfPoints covers all three mechanics: Respuesta Segura, José de Urquiza, and forfeit win
+            if (ans.halfPoints) pointsAdded = Math.floor(pointsAdded / 2);
         }
 
         if (author && !isJinx && !ans.isEmpty && ans.authorId !== 'DUMMY') author.score += pointsAdded;
 
-        return { authorName, text: ans.text, isSafe: ans.isSafe || false, isJose: ans.isJose || false, isEmpty: ans.isEmpty || false, votes: voteCount, voterNames: voterDetails, pointsAdded, quiplash };
+        return {
+            authorName,
+            text: ans.text,
+            isSafe:      ans.isSafe      || false,
+            isTimedOut:  ans.isTimedOut  || false,
+            halfPoints:  ans.halfPoints  || false,
+            isEmpty:     ans.isEmpty     || false,
+            votes: voteCount,
+            voterNames: voterDetails,
+            pointsAdded,
+            quiplash
+        };
     });
 
     broadcast({ type: 'VOTE_RESULT', prompt: currentPrompt, isJinx, hasEmpty, results: resultsData });
