@@ -9,6 +9,7 @@ let myAssignments = [];
 let myAnswers = {};
 let myAnswersSubmitted = false;
 let mySafeAnswerUsed = {};   // key: promptId → true if player used a safe answer
+let mySafeAnswerTexts = {};  // key: promptId → actual safe answer text (hidden from player)
 
 let serverState = {
     players: [],
@@ -612,6 +613,7 @@ function handleGameState(data) {
             myAnswers        = {};
             myAnswersSubmitted = false;
             mySafeAnswerUsed = {};
+            mySafeAnswerTexts = {};
             currentPlayers   = data.players || currentPlayers;
 
             document.getElementById('answering-title').innerText =
@@ -649,6 +651,10 @@ function handleGameState(data) {
                     const safeFlag = document.getElementById(`safe-flag-${q.id}`);
                     if (safeFlag) safeFlag.remove();
                     mySafeAnswerUsed[q.id] = false;
+                    delete mySafeAnswerTexts[q.id];
+                    inp.placeholder = 'Tirá tu mejor chamuyo...';
+                    inp.style.fontStyle = '';
+                    inp.style.color = '';
                     const safeBtn = document.getElementById(`safe-btn-${q.id}`);
                     if (safeBtn) safeBtn.classList.remove('safe-chip-active');
                 });
@@ -683,8 +689,10 @@ function handleGameState(data) {
             myAssignments.forEach(q => {
                 const input = document.getElementById(`answer-${q.id}`);
                 const val = input ? input.value.trim() : '';
-                flushAnswers[q.id] = val;
-                if (val) hasAny = true;
+                // Use hidden safe answer text if player activated it but input is blank
+                const effective = val || mySafeAnswerTexts[q.id] || '';
+                flushAnswers[q.id] = effective;
+                if (effective) hasAny = true;
             });
             if (hasAny) {
                 showToast('¡Justo... José de Urquiza! Se mandó lo que había ⏰', 'accent', 3000);
@@ -779,7 +787,6 @@ function handleGameState(data) {
                 `;
                 resEl.appendChild(jinxCard);
                 data.results.forEach(res => resEl.appendChild(makeResultCard(res, true)));
-                showToast('¡CICUTA! Mismas respuestas 💀', '', 3000);
             } else if (data.hasEmpty) {
                 // Show a forfeit card first, then the winner
                 const forfeitCard = document.createElement('div');
@@ -889,6 +896,9 @@ function castVote(votedForAuthorId, clickedCard) {
 
 // ── Safe Answer usage ─────────────────────────────────────────────────────────
 
+// Stores the actual safe answer text invisibly (player sees a masked placeholder)
+let mySafeAnswerTexts = {};  // key: qId → actual text string
+
 function useSafeAnswer(qId, btnEl) {
     const input = document.getElementById(`answer-${qId}`);
     if (!input || input.disabled) return;
@@ -897,12 +907,15 @@ function useSafeAnswer(qId, btnEl) {
     const assignment = myAssignments.find(q => q.id == qId);
     if (!assignment || !assignment.safeAnswers || assignment.safeAnswers.length === 0) return;
 
-    // Pick a random safe answer
+    // Pick a random safe answer and store it privately — don't show it in the input
     const text = assignment.safeAnswers[Math.floor(Math.random() * assignment.safeAnswers.length)];
+    mySafeAnswerTexts[qId] = text;
 
-    // Fill the input
-    input.value = text;
-    input.dispatchEvent(new Event('input'));
+    // Show a masked placeholder in the input so the player knows it's set but can't read it
+    input.value = '';
+    input.placeholder = '🛡️ Respuesta Segura';
+    input.style.fontStyle = 'italic';
+    input.style.color = '#e67e22';
 
     // Mark safe flag
     mySafeAnswerUsed[qId] = true;
@@ -910,10 +923,13 @@ function useSafeAnswer(qId, btnEl) {
     // Highlight the button
     btnEl.classList.add('safe-chip-active');
 
+    // Mark card as answered so the green border appears
+    const card = document.getElementById(`prompt-card-${qId}`);
+    if (card) card.classList.add('answered');
+
     // Show indicator inside the card
     let safeFlag = document.getElementById(`safe-flag-${qId}`);
     if (!safeFlag) {
-        const card = document.getElementById(`prompt-card-${qId}`);
         safeFlag = document.createElement('div');
         safeFlag.id = `safe-flag-${qId}`;
         safeFlag.className = 'safe-flag-indicator';
@@ -929,8 +945,10 @@ function submitAnswers() {
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
         const val   = input ? input.value.trim() : '';
-        if (!val) allAnswered = false;
-        myAnswers[q.id] = val || 'Me quedé en blanco...';
+        // If a safe answer was chosen (input is intentionally blank), use the stored text
+        const effective = val || mySafeAnswerTexts[q.id] || '';
+        if (!effective) allAnswered = false;
+        myAnswers[q.id] = effective || 'Me quedé en blanco...';
     });
 
     if (!allAnswered && !confirm('¿Dejaste alguna vacía, seguro querés mandar igual?')) return;
@@ -962,6 +980,7 @@ function retractAnswers() {
     myAnswersSubmitted = false;
     myAnswers = {};
     mySafeAnswerUsed = {};
+    mySafeAnswerTexts = {};
 
     document.getElementById('btn-submit-answers').disabled     = false;
     document.getElementById('btn-submit-answers').innerText    = 'Enviar Sarasa 🧉';
@@ -970,7 +989,12 @@ function retractAnswers() {
 
     myAssignments.forEach(q => {
         const input = document.getElementById(`answer-${q.id}`);
-        if (input) { input.disabled = false; }
+        if (input) {
+            input.disabled = false;
+            input.placeholder = 'Tirá tu mejor chamuyo...';
+            input.style.fontStyle = '';
+            input.style.color = '';
+        }
         const safeBtn = document.getElementById(`safe-btn-${q.id}`);
         if (safeBtn) { safeBtn.disabled = false; safeBtn.classList.remove('safe-chip-active'); }
         const safeFlag = document.getElementById(`safe-flag-${q.id}`);
