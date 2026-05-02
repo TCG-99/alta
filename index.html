@@ -691,6 +691,87 @@
             85%  { opacity: 1; }
             100% { transform: translateY(110vh) rotate(780deg); opacity: 0; }
         }
+
+        /* ── Cicuta Interrupt ── */
+        .cicuta-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9500;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0);
+            transition: background 0.4s ease;
+        }
+        .cicuta-overlay.active {
+            background: rgba(20, 0, 0, 0.82);
+        }
+        .cicuta-skull {
+            font-size: 5rem;
+            opacity: 0;
+            transform: scale(0.2) rotate(-20deg);
+            transition: opacity 0.45s cubic-bezier(0.34,1.56,0.64,1), transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+            filter: drop-shadow(0 0 30px rgba(231,76,60,0.9));
+            line-height: 1;
+        }
+        .cicuta-overlay.active .cicuta-skull {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+        .cicuta-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem;
+            letter-spacing: 6px;
+            color: #e74c3c;
+            opacity: 0;
+            transform: translateY(18px);
+            transition: opacity 0.4s ease 0.25s, transform 0.4s ease 0.25s;
+            text-shadow: 0 0 40px rgba(231,76,60,0.7), 0 0 80px rgba(231,76,60,0.3);
+            margin-top: 10px;
+        }
+        .cicuta-overlay.active .cicuta-label {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .cicuta-sublabel {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #f1948a;
+            opacity: 0;
+            transition: opacity 0.4s ease 0.45s;
+            margin-top: 6px;
+            letter-spacing: 1px;
+        }
+        .cicuta-overlay.active .cicuta-sublabel {
+            opacity: 1;
+        }
+
+        /* Skull particles that rain down */
+        .skull-particle {
+            position: absolute;
+            top: -40px;
+            font-size: 1.4rem;
+            pointer-events: none;
+            animation: skullFall linear forwards;
+            opacity: 0.85;
+            filter: drop-shadow(0 0 6px rgba(231,76,60,0.6));
+        }
+        @keyframes skullFall {
+            0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 0.9; }
+            70%  { opacity: 0.85; }
+            100% { transform: translateY(110vh) rotate(540deg) scale(0.7); opacity: 0; }
+        }
+
+        /* Grayed-out answer cards for cicuta preview */
+        .answer-card.cicuta-dead {
+            opacity: 0.45;
+            border-color: rgba(231,76,60,0.3) !important;
+            background: rgba(231,76,60,0.05) !important;
+            cursor: not-allowed;
+            filter: saturate(0.3);
+        }
     </style>
 </head>
 <body>
