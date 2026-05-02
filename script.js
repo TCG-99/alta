@@ -299,6 +299,58 @@ function launchConfetti(count = 48) {
     setTimeout(() => wrap.remove(), 4000);
 }
 
+// ── Cicuta Interrupt ──────────────────────────────────────────────────────────
+
+function launchCicutaInterrupt() {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'cicuta-overlay';
+    overlay.innerHTML = `
+        <div class="cicuta-skull">☠️</div>
+        <div class="cicuta-label">¡CICUTA!</div>
+        <div class="cicuta-sublabel">¡Escribieron lo mismo! 0 puntos para todos.</div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Skull particles rain
+    const wrap = document.createElement('div');
+    wrap.className = 'confetti-wrap';
+    wrap.style.zIndex = '9600';
+    document.body.appendChild(wrap);
+
+    const skulls = ['☠️', '💀', '☠️', '💀'];
+    for (let i = 0; i < 28; i++) {
+        const sp = document.createElement('div');
+        sp.className = 'skull-particle';
+        sp.innerText = skulls[Math.floor(Math.random() * skulls.length)];
+        sp.style.left = Math.random() * 100 + 'vw';
+        sp.style.fontSize = (0.9 + Math.random() * 1.2) + 'rem';
+        const dur = 2.2 + Math.random() * 2;
+        sp.style.animationDuration = dur + 's';
+        sp.style.animationDelay = (Math.random() * 1.2) + 's';
+        wrap.appendChild(sp);
+    }
+
+    // Trigger active state (CSS transition animates skull + label in)
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => overlay.classList.add('active'));
+    });
+
+    showToast('☠️ ¡CICUTA! Mismas respuestas — 0 pts', '', 3200);
+
+    // After 2.4s, fade overlay out and let the results arrive naturally
+    setTimeout(() => {
+        overlay.style.transition = 'opacity 0.5s ease';
+        overlay.style.opacity = '0';
+        wrap.style.transition = 'opacity 0.5s ease';
+        wrap.style.opacity = '0';
+        setTimeout(() => {
+            overlay.remove();
+            wrap.remove();
+        }, 550);
+    }, 2400);
+}
+
 // ── Animated SVG Timer ────────────────────────────────────────────────────────
 
 const TIMER_R = 31;
@@ -649,23 +701,29 @@ function handleGameState(data) {
             cardsEl2.innerHTML = '';
             document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
             document.getElementById('vote-wait-msg').style.display = 'none';
-            document.getElementById('voting-title').innerText = data.isCicuta ? '☠️ ¡CICUTA!' : '🏆 Victoria automática';
 
             if (data.isCicuta) {
-                const note = document.createElement('p');
-                note.style.cssText = 'color:#e74c3c;font-weight:800;font-size:1.1rem;margin:12px 0;';
-                note.innerText = '¡Escribieron lo mismo! 0 puntos para todos.';
-                cardsEl2.appendChild(note);
-                showToast('¡CICUTA automática! Mismas respuestas 💀', '', 3500);
+                // Show both answers grayed out (not votable), then launch the Cicuta interrupt
+                document.getElementById('voting-title').innerText = '¡A votar!';
+                const nonEmpty = data.answers.filter(a => !a.isEmpty);
+                nonEmpty.forEach(ans => {
+                    const card = makeAnswerCard(ans, 'preview');
+                    card.classList.add('cicuta-dead');
+                    cardsEl2.appendChild(card);
+                });
+                showScreen('screen-voting');
+                // Slight delay so the cards render, then CICUTA interrupts
+                setTimeout(() => launchCicutaInterrupt(), 600);
             } else {
+                document.getElementById('voting-title').innerText = '🏆 Victoria automática';
                 const note = document.createElement('p');
                 note.style.cssText = 'color:var(--accent);font-weight:800;font-size:1rem;margin:12px 0;';
                 note.innerText = 'El oponente no mandó nada. ¡Victoria por abandono! (mitad de puntos)';
                 cardsEl2.appendChild(note);
                 data.answers.filter(a => !a.isEmpty).forEach(ans => cardsEl2.appendChild(makeAnswerCard(ans, 'preview')));
                 showToast('Victoria automática 🏆 (mitad de puntos)', 'accent', 3000);
+                showScreen('screen-voting');
             }
-            showScreen('screen-voting');
             break;
         }
 
