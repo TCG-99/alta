@@ -896,9 +896,6 @@ function castVote(votedForAuthorId, clickedCard) {
 
 // ── Safe Answer usage ─────────────────────────────────────────────────────────
 
-// Stores the actual safe answer text invisibly (player sees a masked placeholder)
-let mySafeAnswerTexts = {};  // key: qId → actual text string
-
 function useSafeAnswer(qId, btnEl) {
     const input = document.getElementById(`answer-${qId}`);
     if (!input || input.disabled) return;
