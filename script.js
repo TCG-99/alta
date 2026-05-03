@@ -746,25 +746,36 @@ function handleGameState(data) {
         case 'PHASE_VOTING': {
             document.getElementById('vote-wait-msg').style.display = 'none';
             document.getElementById('voting-title').innerText =
-                data.round === 3 ? 'Votación Final' : '¡A votar!';
+                data.round === 3 ? '🏆 Votación Final' : '¡A votar!';
             document.getElementById('vote-prompt-text').innerText = data.prompt.prompt;
 
             const cardsEl = document.getElementById('voting-cards');
             cardsEl.innerHTML = '';
 
+            const isRound3   = data.round === 3;
             const isMyPrompt = data.answers.some(a => a.authorId === myId);
 
-            if (data.round !== 3 && isMyPrompt) {
+            if (!isRound3 && isMyPrompt) {
+                // Rounds 1-2: authors of this prompt can only watch
                 const note = document.createElement('p');
                 note.style.cssText = 'color:var(--accent);font-weight:800;margin-bottom:12px;';
                 note.innerText = 'Le toca votar a los demás.';
                 cardsEl.appendChild(note);
                 data.answers.forEach(ans => cardsEl.appendChild(makeAnswerCard(ans, 'preview')));
-            } else {
+            } else if (isRound3) {
+                // Round 3: everyone answers the same prompt — vote for others, not yourself
+                if (isMyPrompt) {
+                    const note = document.createElement('p');
+                    note.style.cssText = 'color:var(--accent);font-weight:800;margin-bottom:12px;';
+                    note.innerText = '¡Votá por la mejor respuesta! No podés votar la tuya.';
+                    cardsEl.appendChild(note);
+                }
                 data.answers.forEach(ans => {
-                    const canVoteThis = data.round === 3 ? ans.authorId !== myId : true;
-                    cardsEl.appendChild(makeAnswerCard(ans, canVoteThis ? 'votable' : 'preview'));
+                    const canVote = ans.authorId !== myId;
+                    cardsEl.appendChild(makeAnswerCard(ans, canVote ? 'votable' : 'preview'));
                 });
+            } else {
+                data.answers.forEach(ans => cardsEl.appendChild(makeAnswerCard(ans, 'votable')));
             }
 
             startLocalTimer(data.time);
@@ -1233,14 +1244,19 @@ function handleCommandFromClient(data) {
     else if (data.type === 'CMD_VOTE') {
         const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
         if (!serverState.votes[currentPrompt.id]) serverState.votes[currentPrompt.id] = [];
-        if (!serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId)) {
+        // Ignore self-votes (client shouldn't send them, but guard here too)
+        if (data.voterId !== data.authorId &&
+            !serverState.votes[currentPrompt.id].some(v => v.voterId === data.voterId)) {
             serverState.votes[currentPrompt.id].push({ voterId: data.voterId, votedFor: data.authorId });
         }
-        // Check if all eligible voters have voted
-        const promptAnswers = serverState.answers[currentPrompt.id] || [];
-        const eligibleVoters = serverState.currentRound <= 2
-            ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id))
-            : serverState.players;
+        // Eligible voters:
+        // Rounds 1-2 → players who didn't write an answer for this prompt
+        // Round 3    → all players (each votes for others, not themselves)
+        const promptAnswers  = serverState.answers[currentPrompt.id] || [];
+        const isRound3       = serverState.currentRound === 3;
+        const eligibleVoters = isRound3
+            ? serverState.players
+            : serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id));
         if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
             clearTimeout(serverState.timerTimeout);
             processVotingResults();
@@ -1439,7 +1455,10 @@ function startVotingPhase() {
     const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
     let promptAnswers   = serverState.answers[currentPrompt.id] || [];
 
-    if (serverState.currentRound <= 2 && promptAnswers.length < 2) {
+    const isRound3 = serverState.currentRound === 3;
+
+    // Rounds 1-2 only: pad to 2 answers if one is missing
+    if (!isRound3 && promptAnswers.length < 2) {
         const safety = findReplacementAnswer(currentPrompt.id);
         promptAnswers.push({
             authorId: 'DUMMY',
@@ -1448,11 +1467,10 @@ function startVotingPhase() {
         });
     }
 
-    // If one answer is empty (timed out with nothing), the real one wins automatically with half-points
+    // Rounds 1-2 only: if one answer is empty, the real one wins automatically with half-points
     const emptyIdx = promptAnswers.findIndex(a => a.isEmpty);
     const realIdx  = promptAnswers.findIndex(a => !a.isEmpty && a.authorId !== 'DUMMY');
-    if (emptyIdx !== -1 && realIdx !== -1 && serverState.currentRound <= 2) {
-        // Auto-resolve without voting — winner gets half-points for winning by forfeit
+    if (!isRound3 && emptyIdx !== -1 && realIdx !== -1) {
         promptAnswers[realIdx] = { ...promptAnswers[realIdx], halfPoints: true };
         serverState.answers[currentPrompt.id] = promptAnswers;
         broadcast({
@@ -1465,12 +1483,13 @@ function startVotingPhase() {
         return;
     }
 
-    // Feature 4: if both answers are identical (Cicuta), resolve immediately without voting
-    const nonDummy = promptAnswers.filter(a => a.authorId !== 'DUMMY');
-    const isCicuta = serverState.currentRound <= 2
-        && nonDummy.length === 2
-        && nonDummy[0].text.trim().toLowerCase() === nonDummy[1].text.trim().toLowerCase()
-        && nonDummy[0].text.trim() !== '';
+    // Cicuta: all non-empty, non-dummy answers are identical → 0 pts for everyone
+    // Works in all rounds. Round 3: all players answered the same prompt, so compare all.
+    const nonDummy   = promptAnswers.filter(a => a.authorId !== 'DUMMY' && !a.isEmpty);
+    const firstText  = nonDummy[0]?.text.trim().toLowerCase() ?? null;
+    const isCicuta   = nonDummy.length >= 2
+        && firstText !== ''
+        && nonDummy.every(a => a.text.trim().toLowerCase() === firstText);
     if (isCicuta) {
         serverState.answers[currentPrompt.id] = promptAnswers;
         broadcast({
@@ -1493,15 +1512,19 @@ function startVotingPhase() {
         time: 20
     });
 
-    // Bots vote after a short delay (1-4s), weighted toward what real players voted
+    // Eligible voters:
+    // Rounds 1-2 → players who didn't write an answer for this prompt
+    // Round 3    → everyone except the author of each individual answer (handled per-answer at scoring)
+    //              For the purpose of "did everyone vote?", eligible = all players
+    const eligibleVoters = isRound3
+        ? serverState.players
+        : serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id));
+
+    // Bots vote after a short delay (1-4s)
     const botVoteDelay = 1000 + Math.random() * 3000;
     setTimeout(() => {
         if (serverState.phase === 'VOTING') {
             castBotVotes(currentPrompt, promptAnswers);
-            // Check if all eligible voters have now voted
-            const eligibleVoters = serverState.currentRound <= 2
-                ? serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id))
-                : serverState.players;
             if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
                 clearTimeout(serverState.timerTimeout);
                 processVotingResults();
@@ -1527,31 +1550,39 @@ function processVotingResults() {
     const promptAnswers = serverState.answers[currentPrompt.id] || [];
     const votes         = serverState.votes[currentPrompt.id]   || [];
 
-    // Feature 3: if one answer is empty, real answer wins with all votes (half-points via isSafe)
-    const hasEmpty = promptAnswers.some(a => a.isEmpty);
+    const isRound3   = serverState.currentRound === 3;
+    const hasEmpty   = promptAnswers.some(a => a.isEmpty);
     const realAnswer = promptAnswers.find(a => !a.isEmpty && a.authorId !== 'DUMMY');
 
-    let isJinx = !hasEmpty && serverState.currentRound <= 2
-        && promptAnswers.length === 2
-        && promptAnswers.filter(a => !a.isEmpty).length === 2
-        && promptAnswers[0].text.toLowerCase() === promptAnswers[1].text.toLowerCase();
+    // Cicuta: all non-empty answers are identical (works all rounds)
+    const nonEmptyAnswers = promptAnswers.filter(a => !a.isEmpty && a.authorId !== 'DUMMY');
+    const firstText       = nonEmptyAnswers[0]?.text.trim().toLowerCase() ?? null;
+    const isJinx          = !hasEmpty
+        && nonEmptyAnswers.length >= 2
+        && firstText !== ''
+        && nonEmptyAnswers.every(a => a.text.trim().toLowerCase() === firstText);
 
-    // For empty-vs-real: fabricate votes so real answer gets full eligible voter count
+    // For rounds 1-2 empty-vs-real: fabricate votes so real answer gets all eligible votes
     let effectiveVotes = votes;
-    if (hasEmpty && realAnswer) {
+    if (!isRound3 && hasEmpty && realAnswer) {
         const eligibleVoters = serverState.players.filter(p =>
             !promptAnswers.some(a => a.authorId === p.id)
         );
         effectiveVotes = eligibleVoters.map(p => ({ voterId: p.id, votedFor: realAnswer.authorId }));
     }
 
-    const totalVotes       = effectiveVotes.length;
-    const roundMultiplier  = serverState.currentRound === 2 ? 2 : serverState.currentRound === 3 ? 3 : 1;
+    const totalVotes      = effectiveVotes.length;
+    const roundMultiplier = serverState.currentRound === 2 ? 2 : serverState.currentRound === 3 ? 3 : 1;
 
     const resultsData = promptAnswers.map(ans => {
-        // Skip empty answers from results display (they show up as a special card)
         const author     = serverState.players.find(p => p.id === ans.authorId);
         const authorName = ans.authorId === 'DUMMY' ? ans.authorName : (author ? author.name : 'Desconocido');
+
+        // In round 3, each answer's eligible voters = everyone except that answer's author
+        const answerEligibleCount = isRound3
+            ? serverState.players.filter(p => p.id !== ans.authorId).length
+            : totalVotes;
+
         const voterDetails = effectiveVotes
             .filter(v => v.votedFor === ans.authorId)
             .map(v => { const vi = serverState.players.find(p => p.id === v.voterId); return vi ? vi.name : 'Alguien'; });
@@ -1559,13 +1590,13 @@ function processVotingResults() {
         const voteCount = voterDetails.length;
         let pointsAdded = 0, quiplash = false;
 
-        if (!isJinx && !ans.isEmpty && totalVotes > 0) {
-            pointsAdded = Math.floor((voteCount / totalVotes) * 1000) * roundMultiplier;
-            if (serverState.currentRound <= 2 && voteCount === totalVotes) {
+        if (!isJinx && !ans.isEmpty && answerEligibleCount > 0) {
+            pointsAdded = Math.floor((voteCount / answerEligibleCount) * 1000) * roundMultiplier;
+            // Alta Sarasa: got every eligible vote for this answer
+            if (voteCount === answerEligibleCount && voteCount > 0) {
                 pointsAdded += 500 * roundMultiplier;
                 quiplash = true;
             }
-            // halfPoints covers all three mechanics: Respuesta Segura, José de Urquiza, and forfeit win
             if (ans.halfPoints) pointsAdded = Math.floor(pointsAdded / 2);
         }
 
