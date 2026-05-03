@@ -1251,13 +1251,18 @@ function handleCommandFromClient(data) {
         }
         // Eligible voters:
         // Rounds 1-2 → players who didn't write an answer for this prompt
-        // Round 3    → all players (each votes for others, not themselves)
+        // Round 3    → all players except each answer's own author (no self-voting)
+        //              Use the number of players minus 1 as the threshold (any one author excluded)
         const promptAnswers  = serverState.answers[currentPrompt.id] || [];
         const isRound3       = serverState.currentRound === 3;
         const eligibleVoters = isRound3
-            ? serverState.players
+            ? serverState.players.filter(p => p.id !== data.voterId) // each voter's eligible set excludes themselves
             : serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id));
-        if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
+        // For Round 3, the "all done" threshold = total players - 1 (everyone votes for someone else)
+        const voteThreshold = isRound3
+            ? serverState.players.length - 1
+            : eligibleVoters.length;
+        if ((serverState.votes[currentPrompt.id] || []).length >= voteThreshold) {
             clearTimeout(serverState.timerTimeout);
             processVotingResults();
         }
@@ -1520,14 +1525,19 @@ function startVotingPhase() {
         ? serverState.players
         : serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id));
 
-    // Bots vote after a short delay (1-4s)
+    // Bots vote after a short delay (1-4s).
+    // After casting bot votes, wait at least 3s before checking if all votes are in —
+    // this prevents the voting screen from being skipped with no display time when
+    // bots fill all eligible voter slots immediately.
     const botVoteDelay = 1000 + Math.random() * 3000;
     setTimeout(() => {
         if (serverState.phase === 'VOTING') {
             castBotVotes(currentPrompt, promptAnswers);
             if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
                 clearTimeout(serverState.timerTimeout);
-                processVotingResults();
+                setTimeout(() => {
+                    if (serverState.phase === 'VOTING') processVotingResults();
+                }, 3000);
             }
         }
     }, botVoteDelay);
