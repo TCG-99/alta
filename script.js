@@ -199,11 +199,12 @@ function submitBotAnswers() {
 
 function checkAllAnswersIn() {
     if (serverState.phase !== 'ANSWERING') return;
-    const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
 
-    // Count how many players have submitted ALL their assigned prompts
+    // Count how many players have submitted ALL their assigned prompts.
+    // Players with no assignments (shouldn't happen, but guard anyway) are NOT counted as done.
     const playersFullySubmitted = serverState.players.filter(p => {
         const assignedPrompts = serverState.assignments[p.id] || [];
+        if (assignedPrompts.length === 0) return false;
         return assignedPrompts.every(q =>
             (serverState.answers[q.id] || []).some(a => a.authorId === p.id)
         );
@@ -1299,6 +1300,7 @@ function startRound() {
     serverState.phase            = 'ANSWERING';
     serverState.answers          = {};
     serverState.votes            = {};
+    serverState.assignments      = {};
     serverState.currentVoteIndex = 0;
 
     const players = serverState.players;
