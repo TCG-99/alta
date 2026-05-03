@@ -1252,10 +1252,25 @@ function handleCommandFromClient(data) {
         for (const qId of Object.keys(serverState.answers)) {
             serverState.answers[qId] = serverState.answers[qId].filter(a => a.authorId !== pId);
         }
+        // Cancel any pending "all answers in → start voting" timeout that was scheduled
+        // by checkAllAnswersIn() before this retract arrived. Without this, voting would
+        // start even though a player just withdrew their submission.
+        if (serverState.phase === 'ANSWERING') {
+            clearTimeout(serverState.timerTimeout);
+            // Re-arm the original 60s deadline from when the phase started, capped at 1s minimum.
+            const elapsed = Date.now() - (serverState.answeringPhaseStart || 0);
+            const remaining = Math.max(1000, 60000 - elapsed);
+            serverState.timerTimeout = setTimeout(() => {
+                if (serverState.phase === 'ANSWERING') forceSubmitMissing();
+            }, remaining);
+        }
         // Note: No re-broadcast of ready status needed; client handles locally
     }
 
     else if (data.type === 'CMD_VOTE') {
+        // Guard: reject votes that arrive outside the VOTING phase (e.g. network-delayed
+        // votes from a previous prompt arriving after we already advanced).
+        if (serverState.phase !== 'VOTING') return;
         const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
         if (!serverState.votes[currentPrompt.id]) serverState.votes[currentPrompt.id] = [];
         // Ignore self-votes (client shouldn't send them, but guard here too)
@@ -1490,7 +1505,12 @@ function startVotingPhase() {
                 round: serverState.currentRound - 1,
                 players: serverState.players
             });
-            setTimeout(() => startRound(), 5000);
+            setTimeout(() => {
+                // Guard: only start the next round if we're still in the post-round
+                // scores display. A stale timer from a cancelled round could otherwise
+                // fire and start an extra round.
+                if (serverState.phase === 'VOTING') startRound();
+            }, 5000);
         }
         return;
     }
@@ -1522,7 +1542,15 @@ function startVotingPhase() {
             answers: promptAnswers,
             winnerId: promptAnswers[realIdx].authorId
         });
-        setTimeout(() => processVotingResults(), 3000);
+        if (!serverState.votingResultsPending) {
+            serverState.votingResultsPending = true;
+            setTimeout(() => {
+                if (serverState.phase === 'VOTING' && serverState.votingResultsPending) {
+                    serverState.votingResultsPending = false;
+                    processVotingResults();
+                }
+            }, 3000);
+        }
         return;
     }
 
@@ -1541,7 +1569,15 @@ function startVotingPhase() {
             answers: promptAnswers,
             isCicuta: true
         });
-        setTimeout(() => processVotingResults(), 3000);
+        if (!serverState.votingResultsPending) {
+            serverState.votingResultsPending = true;
+            setTimeout(() => {
+                if (serverState.phase === 'VOTING' && serverState.votingResultsPending) {
+                    serverState.votingResultsPending = false;
+                    processVotingResults();
+                }
+            }, 3000);
+        }
         return;
     }
 
@@ -1571,7 +1607,11 @@ function startVotingPhase() {
     setTimeout(() => {
         if (serverState.phase === 'VOTING') {
             castBotVotes(currentPrompt, promptAnswers);
-            if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
+            // Only check the threshold if there are actually eligible voters —
+            // if eligibleVoters is empty (edge case: all-bot game) skip the check
+            // to avoid an immediate spurious advance with zero votes cast.
+            if (eligibleVoters.length > 0 &&
+                (serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
                 clearTimeout(serverState.timerTimeout);
                 // Guard: only schedule once, and respect minimum voting display time.
                 if (!serverState.votingResultsPending) {
