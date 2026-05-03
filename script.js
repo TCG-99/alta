@@ -25,7 +25,12 @@ let serverState = {
     maxRounds: 3,
     timerTimeout: null,
     phase: 'LOBBY',
-    readyPlayers: new Set()
+    readyPlayers: new Set(),
+    // Safeguard timestamps: track when each phase started so we can enforce
+    // a minimum display time before advancing (prevents instant skips).
+    answeringPhaseStart: 0,   // ms timestamp when ANSWERING began
+    votingPhaseStart: 0,      // ms timestamp when current VOTING prompt began
+    votingResultsPending: false  // true = processVotingResults() is already scheduled
 };
 
 const fallbackQuestions = [
@@ -212,7 +217,16 @@ function checkAllAnswersIn() {
 
     if (playersFullySubmitted.length >= serverState.players.length) {
         clearTimeout(serverState.timerTimeout);
-        startVotingPhase();
+
+        // Safeguard: enforce a minimum of 5 seconds in the answering phase so the
+        // screen is never skipped instantly (e.g. when bots fill all player slots).
+        const MIN_ANSWERING_MS = 5000;
+        const elapsed = Date.now() - (serverState.answeringPhaseStart || 0);
+        const delay = Math.max(0, MIN_ANSWERING_MS - elapsed);
+
+        serverState.timerTimeout = setTimeout(() => {
+            if (serverState.phase === 'ANSWERING') startVotingPhase();
+        }, delay);
     }
 }
 
@@ -1264,7 +1278,20 @@ function handleCommandFromClient(data) {
             : eligibleVoters.length;
         if ((serverState.votes[currentPrompt.id] || []).length >= voteThreshold) {
             clearTimeout(serverState.timerTimeout);
-            processVotingResults();
+            // Guard: only schedule once, and give at least 3s of voting-screen display
+            // before advancing. Without this, a fast last-voter skip the screen instantly.
+            if (!serverState.votingResultsPending) {
+                serverState.votingResultsPending = true;
+                const MIN_VOTING_MS = 4000;
+                const elapsed = Date.now() - (serverState.votingPhaseStart || 0);
+                const delay = Math.max(3000, MIN_VOTING_MS - elapsed);
+                setTimeout(() => {
+                    if (serverState.phase === 'VOTING' && serverState.votingResultsPending) {
+                        serverState.votingResultsPending = false;
+                        processVotingResults();
+                    }
+                }, delay);
+            }
         }
     }
 }
@@ -1323,6 +1350,8 @@ function startRound() {
     serverState.votes            = {};
     serverState.assignments      = {};
     serverState.currentVoteIndex = 0;
+    serverState.answeringPhaseStart = Date.now();
+    serverState.votingResultsPending = false;
 
     const players = serverState.players;
     const N       = players.length;
@@ -1435,12 +1464,21 @@ function forceSubmitMissing() {
                 }
             });
         }
-        startVotingPhase();
+        // Only advance to voting if we're still in ANSWERING. checkAllAnswersIn()
+        // may have already scheduled (or fired) startVotingPhase via timerTimeout
+        // if all flush replies arrived quickly — cancel that pending timeout first
+        // then advance ourselves to avoid a duplicate call.
+        if (serverState.phase === 'ANSWERING') {
+            clearTimeout(serverState.timerTimeout);
+            startVotingPhase();
+        }
     }, 1500);
 }
 
 function startVotingPhase() {
     serverState.phase = 'VOTING';
+    serverState.votingPhaseStart = Date.now();
+    serverState.votingResultsPending = false;
 
     if (serverState.currentVoteIndex >= serverState.prompts.length) {
         serverState.currentRound++;
@@ -1526,7 +1564,7 @@ function startVotingPhase() {
         : serverState.players.filter(p => !promptAnswers.some(a => a.authorId === p.id));
 
     // Bots vote after a short delay (1-4s).
-    // After casting bot votes, wait at least 3s before checking if all votes are in —
+    // After casting bot votes, enforce a minimum voting display time before resolving —
     // this prevents the voting screen from being skipped with no display time when
     // bots fill all eligible voter slots immediately.
     const botVoteDelay = 1000 + Math.random() * 3000;
@@ -1535,14 +1573,29 @@ function startVotingPhase() {
             castBotVotes(currentPrompt, promptAnswers);
             if ((serverState.votes[currentPrompt.id] || []).length >= eligibleVoters.length) {
                 clearTimeout(serverState.timerTimeout);
-                setTimeout(() => {
-                    if (serverState.phase === 'VOTING') processVotingResults();
-                }, 3000);
+                // Guard: only schedule once, and respect minimum voting display time.
+                if (!serverState.votingResultsPending) {
+                    serverState.votingResultsPending = true;
+                    const MIN_VOTING_MS = 4000;
+                    const elapsed = Date.now() - (serverState.votingPhaseStart || 0);
+                    const delay = Math.max(3000, MIN_VOTING_MS - elapsed);
+                    setTimeout(() => {
+                        if (serverState.phase === 'VOTING' && serverState.votingResultsPending) {
+                            serverState.votingResultsPending = false;
+                            processVotingResults();
+                        }
+                    }, delay);
+                }
             }
         }
     }, botVoteDelay);
 
-    serverState.timerTimeout = setTimeout(() => processVotingResults(), 20000);
+    serverState.timerTimeout = setTimeout(() => {
+        if (serverState.phase === 'VOTING' && !serverState.votingResultsPending) {
+            serverState.votingResultsPending = true;
+            processVotingResults();
+        }
+    }, 20000);
 }
 
 function findReplacementAnswer(excludeQId) {
@@ -1556,6 +1609,7 @@ function findReplacementAnswer(excludeQId) {
 }
 
 function processVotingResults() {
+    serverState.votingResultsPending = false;
     const currentPrompt = serverState.prompts[serverState.currentVoteIndex];
     const promptAnswers = serverState.answers[currentPrompt.id] || [];
     const votes         = serverState.votes[currentPrompt.id]   || [];
