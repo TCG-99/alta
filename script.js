@@ -200,9 +200,16 @@ function submitBotAnswers() {
 function checkAllAnswersIn() {
     if (serverState.phase !== 'ANSWERING') return;
     const expectedPerPlayer = serverState.currentRound <= 2 ? 2 : 1;
-    const totalExpected = serverState.players.length * expectedPerPlayer;
-    const totalReceived = Object.values(serverState.answers).flat().length;
-    if (totalReceived >= totalExpected) {
+
+    // Count how many players have submitted ALL their assigned prompts
+    const playersFullySubmitted = serverState.players.filter(p => {
+        const assignedPrompts = serverState.assignments[p.id] || [];
+        return assignedPrompts.every(q =>
+            (serverState.answers[q.id] || []).some(a => a.authorId === p.id)
+        );
+    });
+
+    if (playersFullySubmitted.length >= serverState.players.length) {
         clearTimeout(serverState.timerTimeout);
         startVotingPhase();
     }
@@ -895,6 +902,9 @@ function castVote(votedForAuthorId, clickedCard) {
 }
 
 // ── Safe Answer usage ─────────────────────────────────────────────────────────
+
+// Stores the actual safe answer text invisibly (player sees a masked placeholder)
+let mySafeAnswerTexts = {};  // key: qId → actual text string
 
 function useSafeAnswer(qId, btnEl) {
     const input = document.getElementById(`answer-${qId}`);
